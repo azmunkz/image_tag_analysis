@@ -1,0 +1,6 @@
+services:
+  image_tag_analysis.settings_form:
+    class: Drupal\image_tag_analysis\Form\ImageTagAnalysisSettingsForm
+    arguments: ['@config.factory']
+    tags:
+      - { name: form }

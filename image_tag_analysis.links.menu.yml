@@ -1,0 +1,6 @@
+image_tag_analysis.admin_settings:
+  title: 'Image Tag Analysis'
+  description: 'Configure prompt for AI image tagging.'
+  parent: system.admin_config
+  route_name: image_tag_analysis.settings
+  weight: 100

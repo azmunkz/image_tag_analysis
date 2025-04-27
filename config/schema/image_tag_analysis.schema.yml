@@ -1,0 +1,7 @@
+image_tag_analysis.settings:
+  type: config_object
+  label: 'Image Tag Analysis settings'
+  mapping:
+    ai_prompt:
+      type: text
+      label: 'AI Prompt'

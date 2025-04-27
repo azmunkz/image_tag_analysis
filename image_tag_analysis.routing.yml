@@ -1,0 +1,7 @@
+image_tag_analysis.settings:
+  path: '/admin/config/image-tag-analysis'
+  defaults:
+    _form: '\Drupal\image_tag_analysis\Form\ImageTagAnalysisSettingsForm'
+    _title: 'Image Tag Analysis Settings'
+  requirements:
+    _permission: 'administer site configuration'

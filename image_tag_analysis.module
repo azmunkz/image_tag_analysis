@@ -1,0 +1,196 @@
+<?php
+
+use Drupal\node\NodeInterface;
+use Drupal\taxonomy\Entity\Term;
+
+/**
+ * Implements hook_node_presave().
+ */
+function image_tag_analysis_node_presave(NodeInterface $node) {
+  if ($node->bundle() !== 'article') return;
+
+  if (!$node->hasField('field_image') || $node->get('field_image')->isEmpty()) return;
+
+  if ($node->hasField('field_image_tag_analysis') && !$node->get('field_image_tag_analysis')->isEmpty()) return;
+
+  $file = $node->get('field_image')->entity;
+  $file_path = $file->getFileUri();
+  $real_path = \Drupal::service('file_system')->realpath($file_path);
+  $image_data = base64_encode(file_get_contents($real_path));
+
+  // Get prompt from config.
+  $prompt = \Drupal::config('image_tag_analysis.settings')->get('ai_prompt');
+
+  $response = _image_tag_analysis_call_ai($image_data, $prompt);
+
+  if (!empty($response)) {
+    \Drupal::logger('image_tag_analysis')->notice('AI Raw Response: @res', ['@res' => $response]);
+    $term_ids = _image_tag_analysis_create_terms_from_json($response);
+    if (!empty($term_ids)) {
+      $node->set('field_image_tag_analysis', $term_ids);
+      \Drupal::logger('image_tag_analysis')->notice('Assigned term IDs: @ids', ['@ids' => implode(', ', $term_ids)]);
+    }
+  }
+}
+
+/**
+ * Call OpenAI Vision API with image + prompt.
+ */
+function _image_tag_analysis_call_ai($image_data, $prompt) {
+  try {
+    $key_service = \Drupal::service('key.repository');
+    $key = $key_service->getKey('openai_key');
+    if (!$key) {
+      \Drupal::logger('image_tag_analysis')->error('Key "openai_key" not found.');
+      return NULL;
+    }
+
+    $api_key = $key->getKeyValue();
+
+    $client = \Drupal::httpClient();
+
+    $res = $client->post('https://api.openai.com/v1/chat/completions', [
+      'headers' => [
+        'Authorization' => "Bearer $api_key",
+        'Content-Type' => 'application/json',
+      ],
+      'json' => [
+        'model' => 'gpt-4o',
+        'messages' => [
+          [
+            'role' => 'user',
+            'content' => [
+              ['type' => 'text', 'text' => $prompt],
+              ['type' => 'image_url', 'image_url' => ['url' => 'data:image/jpeg;base64,' . $image_data]],
+            ],
+          ],
+        ],
+        'max_tokens' => 1024,
+      ],
+    ]);
+
+    $body = json_decode($res->getBody()->getContents(), TRUE);
+    return $body['choices'][0]['message']['content'] ?? '';
+  }
+  catch (Exception $e) {
+    \Drupal::logger('image_tag_analysis')->error('API Error: @msg', ['@msg' => $e->getMessage()]);
+    return NULL;
+  }
+}
+
+/**
+ * Parse JSON AI Response and create taxonomy terms.
+ */
+//function _image_tag_analysis_create_terms_from_json($response) {
+//  $term_ids = [];
+//
+//  $data = json_decode($response, TRUE);
+//  if (!is_array($data)) {
+//    \Drupal::logger('image_tag_analysis')->error('Invalid AI response, cannot parse JSON.');
+//    return $term_ids;
+//  }
+//
+//  foreach ($data as $item) {
+//    if (!empty($item['Product Name'])) {
+//      $name = trim($item['Product Name']);
+//      $desc = print_r($item, TRUE);
+//
+//      $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+//        'name' => $name,
+//        'vid' => 'image_tag_analysis',
+//      ]);
+//      $term = reset($terms);
+//      if (!$term) {
+//        $term = Term::create([
+//          'vid' => 'image_tag_analysis',
+//          'name' => $name,
+//          'description' => ['value' => $desc, 'format' => 'plain_text'],
+//        ]);
+//        $term->save();
+//      }
+//
+//      $term_ids[] = $term->id();
+//    }
+//  }
+//
+//  return $term_ids;
+//}
+function _image_tag_analysis_create_terms_from_json($response) {
+  $term_ids = [];
+
+  // Fix: Remove markdown ```json blocks if exist
+  // Clean markdown ```json wrapper if any
+  if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
+    $response = trim($matches[1]);
+  }
+
+  $data = json_decode($response, TRUE);
+
+  if (!is_array($data)) {
+    \Drupal::logger('image_tag_analysis')->error('Invalid AI response after cleaning, cannot parse JSON.');
+    return $term_ids;
+  }
+
+//  foreach ($data as $item) {
+//    if (!empty($item['Product Name'])) {
+//      $name = trim($item['Product Name']);
+//      $desc = print_r($item, TRUE);
+//
+//      $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+//        'name' => $name,
+//        'vid' => 'image_tag_analysis',
+//      ]);
+//      $term = reset($terms);
+//      if (!$term) {
+//        $term = Term::create([
+//          'vid' => 'image_tag_analysis',
+//          'name' => $name,
+//          'description' => ['value' => $desc, 'format' => 'plain_text'],
+//        ]);
+//        $term->save();
+//      }
+//
+//      $term_ids[] = $term->id();
+//    }
+//  }
+
+  foreach ($data as $item) {
+    $tags = [];
+
+    if (!empty($item['Product Name'])) {
+      $tags[] = trim($item['Product Name']);
+    }
+
+    if (!empty($item['Brand'])) {
+      $tags[] = trim($item['Brand']);
+    }
+
+    // Optional: add Category too
+    // if (!empty($item['Category'])) {
+    //   $tags[] = trim($item['Category']);
+    // }
+
+    $desc = print_r($item, TRUE);
+
+    foreach ($tags as $name) {
+      $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
+        'name' => $name,
+        'vid' => 'image_tag_analysis',
+      ]);
+      $term = reset($terms);
+      if (!$term) {
+        $term = Term::create([
+          'vid' => 'image_tag_analysis',
+          'name' => $name,
+          'description' => ['value' => $desc, 'format' => 'plain_text'],
+        ]);
+        $term->save();
+      }
+      $term_ids[] = $term->id();
+    }
+  }
+
+
+
+  return $term_ids;
+}
