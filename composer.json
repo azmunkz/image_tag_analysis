@@ -1,0 +1,15 @@
+{
+    "name": "azmunkz/image_tag_analysis",
+    "description": "Drupal custom module to analyze uploaded images using AI, auto-generate tags and description with re-analyze feature.",
+    "type": "drupal-module",
+    "keywords": ["Drupal", "AI", "Image Analysis", "Tagging", "Content Enrichment"],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/azmunkz/image_tag_analysis"
+        }
+    ],
+    "require": {
+        "azmunkz/image_tag_analysis": "^1.0"
+    }
+}
