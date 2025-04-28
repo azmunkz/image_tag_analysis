@@ -1,14 +1,31 @@
 {
-    "name": "azmunkz/image_tag_analysis",
-    "description": "Drupal custom module to analyze uploaded images using AI, auto-generate tags and description with re-analyze feature.",
-    "type": "drupal-module",
-    "keywords": ["Drupal", "AI", "Image Analysis", "Tagging", "Content Enrichment"],
+    "name": "drupal/my-drupal-project",
+    "description": "Drupal 10/11 custom project with private module integration.",
+    "type": "project",
     "repositories": [
         {
             "type": "vcs",
             "url": "https://github.com/azmunkz/image_tag_analysis"
         }
     ],
+    "require": {
+        "drupal/core": "^10 || ^11",
+        "azmunkz/image_tag_analysis": "1.2.2"
+    },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "extra": {
+        "installer-paths": {
+            "web/core": ["type:drupal-core"],
+            "web/libraries/{$name}": ["type:drupal-library"],
+            "web/modules/contrib/{$name}": ["type:drupal-module"],
+            "web/profiles/contrib/{$name}": ["type:drupal-profile"],
+            "web/themes/contrib/{$name}": ["type:drupal-theme"],
+            "drush/Commands/contrib/{$name}": ["type:drupal-drush"]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "preferred-install": "dist"
+    }
 }
