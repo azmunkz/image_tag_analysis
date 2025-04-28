@@ -23,16 +23,17 @@ Custom Drupal module to analyze uploaded images using AI and auto-generate smart
 ```
 drush en image_tag_analysis -y
 ```
+3. Create new Taxonomy Vocabulary: `Image Tag Analysis`
 
-3. Add the following fields to your **Article** content type:
+4. Add the following fields to your **Article** content type:
    - `field_image_tag_analysis` (Taxonomy Term Reference - Vocabulary: `Image Tag Analysis`)
    - `field_image_tag_analysis_desc` (Long Text)
 
-4. Install and configure the **Key** module:
+5Install and configure the **Key** module:
    - Create a new Key named `openai_key`
    - Store your OpenAI API Key securely.
 
-5. Set your custom AI Prompt under:
+6Set your custom AI Prompt under:
    - **Admin UI** ➔ Configuration ➔ Content Authoring ➔ **Image Tag Analysis Settings**
 
 ---
@@ -74,30 +75,6 @@ Do NOT include any markdown. Only clean valid JSON.
 ```
 
 ---
-
-## 📦 Composer Installation (optional)
-
-If you want to install the module via Composer:
-
-1. Make sure your `composer.json` has the private repository defined:
-
-```
-"repositories": [
-  {
-    "type": "vcs",
-    "url": "https://github.com/azmunkz/image_tag_analysis"
-  }
-]
-```
-
-2. Then run:
-
-```
-composer require kanda/image_tag_analysis:^1.0
-```
-
----
-
 ## 🛡 Best Practices
 
 - Recommended to use **gpt-4o** model for higher accuracy.
