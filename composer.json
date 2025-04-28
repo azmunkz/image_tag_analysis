@@ -10,6 +10,6 @@
         }
     ],
     "require": {
-        "azmunkz/image_tag_analysis": "^1.0"
+        "azmunkz/image_tag_analysis": "^1.1"
     }
 }
