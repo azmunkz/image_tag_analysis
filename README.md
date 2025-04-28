@@ -1,24 +1,16 @@
-# Image Tag Analysis
+# Image Tag Analysis (v9.6 Rebuild)
 
-This Drupal custom module uses AI (OpenAI Vision) to analyze uploaded images and auto-tag articles.
+Custom Drupal module to analyze uploaded images using AI.
 
 ## Features
-- Analyze images during article creation
-- Create terms based on Product Name, Brand, and Category
-- Configurable AI prompts via admin UI
+- Auto-tag articles based on image contents
+- Auto-generate vivid description
+- Re-analyze button with Confirm Dialog
+- Filter duplicate tags
+- Gin Admin compatible
 
-## Example Prompt
-```
-Analyze the provided image and list clothing, logos, and accessories worn by the subject. Return JSON format:
-
-[
-  {
-    "Product Name": "",
-    "Brand": "",
-    "Category": "",
-    "Features": "",
-    "Potential Value": ""
-  }
-]
-Only return raw JSON.
-```
+## Installation
+- Place module into `modules/custom/`
+- Enable via Admin UI or Drush
+- Add necessary fields to Article content type
+- Configure OpenAI Key and Prompt

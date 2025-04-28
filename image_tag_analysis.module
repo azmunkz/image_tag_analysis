@@ -2,53 +2,85 @@
 
 use Drupal\node\NodeInterface;
 use Drupal\taxonomy\Entity\Term;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Implements hook_node_presave().
  */
 function image_tag_analysis_node_presave(NodeInterface $node) {
   if ($node->bundle() !== 'article') return;
+  _image_tag_analysis_process_node($node);
+}
 
+/**
+ * Alter Node Form to add Re-analyze button.
+ */
+function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterface $form_state, $form_id) {
+  $node = $form_state->getFormObject()->getEntity();
+  if ($node->bundle() === 'article') {
+    $form['re_analyze_button'] = [
+      '#type' => 'submit',
+      '#value' => t('Re-analyze Image'),
+      '#submit' => ['image_tag_analysis_reanalyze_submit'],
+      '#attributes' => [
+        'onclick' => "return confirm('Are you sure you want to re-analyze the image? This will overwrite the existing tags and description.');",
+      ],
+      '#weight' => 100,
+    ];
+  }
+}
+
+/**
+ * Submit handler for Re-analyze button.
+ */
+function image_tag_analysis_reanalyze_submit(array &$form, FormStateInterface $form_state) {
+  $node = $form_state->getFormObject()->getEntity();
+  _image_tag_analysis_process_node($node);
+  $node->save();
+  \Drupal::messenger()->addStatus('Image re-analyzed and updated.');
+}
+
+/**
+ * Main logic to call AI and update node fields.
+ */
+function _image_tag_analysis_process_node(NodeInterface $node) {
   if (!$node->hasField('field_image') || $node->get('field_image')->isEmpty()) return;
 
-  if ($node->hasField('field_image_tag_analysis') && !$node->get('field_image_tag_analysis')->isEmpty()) return;
-
   $file = $node->get('field_image')->entity;
-  $file_path = $file->getFileUri();
-  $real_path = \Drupal::service('file_system')->realpath($file_path);
-  $image_data = base64_encode(file_get_contents($real_path));
+  $path = \Drupal::service('file_system')->realpath($file->getFileUri());
+  $image_data = base64_encode(file_get_contents($path));
 
-  // Get prompt from config.
   $prompt = \Drupal::config('image_tag_analysis.settings')->get('ai_prompt');
-
   $response = _image_tag_analysis_call_ai($image_data, $prompt);
 
   if (!empty($response)) {
-    \Drupal::logger('image_tag_analysis')->notice('AI Raw Response: @res', ['@res' => $response]);
-    $term_ids = _image_tag_analysis_create_terms_from_json($response);
-    if (!empty($term_ids)) {
-      $node->set('field_image_tag_analysis', $term_ids);
-      \Drupal::logger('image_tag_analysis')->notice('Assigned term IDs: @ids', ['@ids' => implode(', ', $term_ids)]);
+    if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
+      $response = trim($matches[1]);
+    }
+    $data = json_decode($response, TRUE);
+    if (is_array($data)) {
+      if (!empty($data['description']) && $node->hasField('field_image_tag_analysis_desc')) {
+        $node->set('field_image_tag_analysis_desc', $data['description']);
+      }
+      if (!empty($data['items'])) {
+        $term_ids = _image_tag_analysis_create_terms_from_items($data['items']);
+        if (!empty($term_ids) && $node->hasField('field_image_tag_analysis')) {
+          $node->set('field_image_tag_analysis', $term_ids);
+        }
+      }
     }
   }
 }
 
 /**
- * Call OpenAI Vision API with image + prompt.
+ * Call OpenAI API with prompt + image.
  */
 function _image_tag_analysis_call_ai($image_data, $prompt) {
   try {
     $key_service = \Drupal::service('key.repository');
     $key = $key_service->getKey('openai_key');
-    if (!$key) {
-      \Drupal::logger('image_tag_analysis')->error('Key "openai_key" not found.');
-      return NULL;
-    }
-
     $api_key = $key->getKeyValue();
-
     $client = \Drupal::httpClient();
-
     $res = $client->post('https://api.openai.com/v1/chat/completions', [
       'headers' => [
         'Authorization' => "Bearer $api_key",
@@ -65,10 +97,9 @@ function _image_tag_analysis_call_ai($image_data, $prompt) {
             ],
           ],
         ],
-        'max_tokens' => 1024,
+        'max_tokens' => 2048,
       ],
     ]);
-
     $body = json_decode($res->getBody()->getContents(), TRUE);
     return $body['choices'][0]['message']['content'] ?? '';
   }
@@ -79,100 +110,42 @@ function _image_tag_analysis_call_ai($image_data, $prompt) {
 }
 
 /**
- * Parse JSON AI Response and create taxonomy terms.
+ * Create taxonomy terms with duplicate filtering.
  */
-//function _image_tag_analysis_create_terms_from_json($response) {
-//  $term_ids = [];
-//
-//  $data = json_decode($response, TRUE);
-//  if (!is_array($data)) {
-//    \Drupal::logger('image_tag_analysis')->error('Invalid AI response, cannot parse JSON.');
-//    return $term_ids;
-//  }
-//
-//  foreach ($data as $item) {
-//    if (!empty($item['Product Name'])) {
-//      $name = trim($item['Product Name']);
-//      $desc = print_r($item, TRUE);
-//
-//      $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
-//        'name' => $name,
-//        'vid' => 'image_tag_analysis',
-//      ]);
-//      $term = reset($terms);
-//      if (!$term) {
-//        $term = Term::create([
-//          'vid' => 'image_tag_analysis',
-//          'name' => $name,
-//          'description' => ['value' => $desc, 'format' => 'plain_text'],
-//        ]);
-//        $term->save();
-//      }
-//
-//      $term_ids[] = $term->id();
-//    }
-//  }
-//
-//  return $term_ids;
-//}
-function _image_tag_analysis_create_terms_from_json($response) {
+function _image_tag_analysis_create_terms_from_items(array $items) {
   $term_ids = [];
+  $seen_tags = [];
 
-  // Fix: Remove markdown ```json blocks if exist
-  // Clean markdown ```json wrapper if any
-  if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
-    $response = trim($matches[1]);
-  }
-
-  $data = json_decode($response, TRUE);
-
-  if (!is_array($data)) {
-    \Drupal::logger('image_tag_analysis')->error('Invalid AI response after cleaning, cannot parse JSON.');
-    return $term_ids;
-  }
-
-//  foreach ($data as $item) {
-//    if (!empty($item['Product Name'])) {
-//      $name = trim($item['Product Name']);
-//      $desc = print_r($item, TRUE);
-//
-//      $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
-//        'name' => $name,
-//        'vid' => 'image_tag_analysis',
-//      ]);
-//      $term = reset($terms);
-//      if (!$term) {
-//        $term = Term::create([
-//          'vid' => 'image_tag_analysis',
-//          'name' => $name,
-//          'description' => ['value' => $desc, 'format' => 'plain_text'],
-//        ]);
-//        $term->save();
-//      }
-//
-//      $term_ids[] = $term->id();
-//    }
-//  }
-
-  foreach ($data as $item) {
+  foreach ($items as $item) {
     $tags = [];
 
+    // Add Product Name if exist
     if (!empty($item['Product Name'])) {
       $tags[] = trim($item['Product Name']);
     }
 
+    // Add Brand if exist
     if (!empty($item['Brand'])) {
       $tags[] = trim($item['Brand']);
     }
 
-    // Optional: add Category too
-    // if (!empty($item['Category'])) {
-    //   $tags[] = trim($item['Category']);
-    // }
-
-    $desc = print_r($item, TRUE);
+    // Add Category if exist
+    if (!empty($item['Category'])) {
+      $tags[] = trim($item['Category']);
+    }
 
     foreach ($tags as $name) {
+      if (empty($name)) continue;
+      $normalized = strtolower($name);
+
+      // Skip unwanted
+      if (in_array($normalized, ['unknown', 'n/a', 'not sure'])) continue;
+
+      // Skip duplicate tag
+      if (in_array($normalized, $seen_tags)) continue;
+      $seen_tags[] = $normalized;
+
+      // Check if term already exists
       $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
         'name' => $name,
         'vid' => 'image_tag_analysis',
@@ -182,15 +155,14 @@ function _image_tag_analysis_create_terms_from_json($response) {
         $term = Term::create([
           'vid' => 'image_tag_analysis',
           'name' => $name,
-          'description' => ['value' => $desc, 'format' => 'plain_text'],
+          'description' => ['value' => print_r($item, TRUE), 'format' => 'plain_text'],
         ]);
         $term->save();
       }
+
       $term_ids[] = $term->id();
     }
   }
-
-
 
   return $term_ids;
 }

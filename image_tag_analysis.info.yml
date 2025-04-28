@@ -1,6 +1,6 @@
 name: 'Image Tag Analysis'
 type: module
-description: 'Analyzes uploaded images using AI and tags articles with taxonomy terms.'
+description: 'Analyze uploaded images, auto-tag articles, reanalyze with confirm dialog and filter duplicate tags. Gin Admin compatible.'
 core_version_requirement: ^10 || ^11
 package: Custom
 dependencies:

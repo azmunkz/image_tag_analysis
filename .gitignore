@@ -1,0 +1,2 @@
+# Ignore all .bak file from being commit
+*.bak

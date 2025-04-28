@@ -1,6 +1,7 @@
 # Changelog
 
-## v1.0.0
-- Initial release
-- AI image analysis with tag creation
-- Configurable prompts
+## v9.6
+- Improved prompt to reduce duplicates
+- Server-side duplicate product name filtering
+- Confirm Dialog before Re-analyze
+- Better compatibility for Gin Admin Theme
