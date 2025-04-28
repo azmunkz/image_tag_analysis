@@ -11,5 +11,7 @@
     ],
     "require": {
         "azmunkz/image_tag_analysis": "^1.1"
-    }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }
