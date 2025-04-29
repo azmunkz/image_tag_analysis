@@ -33,22 +33,58 @@ function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterfac
 /**
  * Submit handler for Re-analyze button.
  */
-function image_tag_analysis_reanalyze_submit(array &$form, FormStateInterface $form_state) {
-  $node = $form_state->getFormObject()->getEntity();
-  _image_tag_analysis_process_node($node);
-  $node->save();
-  \Drupal::messenger()->addStatus('Image re-analyzed and updated.');
-}
-
-/**
- * Main logic to call AI and update node fields.
- */
 function _image_tag_analysis_process_node(NodeInterface $node) {
-  if (!$node->hasField('field_image') || $node->get('field_image')->isEmpty()) return;
+  if (!$node->hasField('field_image') || $node->get('field_image')->isEmpty()) {
+    return;
+  }
 
   $file = $node->get('field_image')->entity;
-  $path = \Drupal::service('file_system')->realpath($file->getFileUri());
-  $image_data = base64_encode(file_get_contents($path));
+  $uri = $file->getFileUri();
+  $file_system = \Drupal::service('file_system');
+
+  $image_contents = NULL;
+
+  if (str_starts_with($uri, 's3://')) {
+    // Fetch CDN domain from config first
+    $cdn_domain = \Drupal::config('image_tag_analysis.settings')->get('cdn_domain');
+
+    // Fallback to settings.php if config empty
+    if (empty($cdn_domain) && \Drupal::hasService('settings')) {
+      $cdn_domain = \Drupal::service('settings')->get('image_tag_analysis.cdn_domain');
+    }
+
+    if (empty($cdn_domain)) {
+      \Drupal::logger('image_tag_analysis')->error('CDN domain not configured. Please set via Admin UI or settings.php.');
+      return;
+    }
+
+    $path = substr($uri, strlen('s3://'));
+
+    // Handle S3FS Root folder if exists
+    $root_folder = \Drupal::config('s3fs.settings')->get('root_folder');
+    if (!empty($root_folder)) {
+      $path = $root_folder . '/' . $path;
+    }
+
+    $image_url = rtrim($cdn_domain, '/') . '/' . ltrim($path, '/');
+    \Drupal::logger('image_tag_analysis')->notice('Fetching image from CDN URL: @url', ['@url' => $image_url]);
+
+    $image_contents = @file_get_contents($image_url);
+  }
+  else {
+    // Local file (public:// private://)
+    $real_path = $file_system->realpath($uri);
+    if (!empty($real_path)) {
+      $image_contents = @file_get_contents($real_path);
+    }
+  }
+
+  if ($image_contents === FALSE || empty($image_contents)) {
+    \Drupal::logger('image_tag_analysis')->error('Cannot load image from URI: @uri', ['@uri' => $uri]);
+    return;
+  }
+
+  $image_data = base64_encode($image_contents);
 
   $prompt = \Drupal::config('image_tag_analysis.settings')->get('ai_prompt');
   $response = _image_tag_analysis_call_ai($image_data, $prompt);
@@ -58,6 +94,7 @@ function _image_tag_analysis_process_node(NodeInterface $node) {
       $response = trim($matches[1]);
     }
     $data = json_decode($response, TRUE);
+
     if (is_array($data)) {
       if (!empty($data['description']) && $node->hasField('field_image_tag_analysis_desc')) {
         $node->set('field_image_tag_analysis_desc', $data['description']);

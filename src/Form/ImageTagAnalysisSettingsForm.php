@@ -26,12 +26,20 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
       '#rows' => 15,
     ];
 
+    $form['cdn_domain'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('CDN Domain'),
+      '#default_value' => $config->get('cdn_domain'),
+      '#description' => $this->t('Enter the base URL of your CDN, e.g., https://d19352o69xmbxa.cloudfront.net'),
+    ];
+
     return parent::buildForm($form, $form_state);
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('image_tag_analysis.settings')
       ->set('ai_prompt', $form_state->getValue('ai_prompt'))
+      ->set('cdn_domain', $form_state->getValue('cdn_domain'))
       ->save();
 
     parent::submitForm($form, $form_state);

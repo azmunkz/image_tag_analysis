@@ -5,3 +5,6 @@ image_tag_analysis.settings:
     ai_prompt:
       type: text
       label: 'AI Prompt'
+    cdn_domain:
+      type: string
+      label: 'CDN Domain'
