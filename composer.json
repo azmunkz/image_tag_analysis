@@ -5,7 +5,7 @@
     "repositories": [
         {
             "type": "vcs",
-            "url": "git@github.com:azmunkz/image_tag_analysis.git"
+            "url": "https://github.com/azmunkz/image_tag_analysis.git"
         }
     ],
     "require": {
