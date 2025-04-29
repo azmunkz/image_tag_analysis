@@ -1,5 +1,5 @@
 {
-    "name": "drupal/my-drupal-project",
+    "name": "azman/image_tag_analysis",
     "description": "Drupal 10/11 custom project with private module integration.",
     "type": "project",
     "repositories": [
