@@ -10,7 +10,7 @@
     ],
     "require": {
         "drupal/core": "^10 || ^11",
-        "azmunkz/image_tag_analysis": "1.2.*"
+        "azmunkz/image_tag_analysis": "dev-main"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
