@@ -20,11 +20,20 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
 
     $form['ai_prompt'] = [
       '#type' => 'textarea',
-      '#title' => $this->t('AI Prompt'),
+      '#title' => $this->t('AI Prompt Product Image Analysis'),
       '#default_value' => $config->get('ai_prompt'),
       '#description' => $this->t('Custom prompt to send to the AI image analysis model.'),
       '#rows' => 15,
     ];
+
+    $form['article_prompt'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('AI Prompt for Article'),
+      '#default_value' => $config->get('article_prompt'),
+      '#description' => $this->t('Prompt used when analyzing article content to extract relevant product-related tags.'),
+      '#rows' => 10,
+    ];
+
 
     $form['cdn_domain'] = [
       '#type' => 'textfield',
@@ -39,6 +48,7 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('image_tag_analysis.settings')
       ->set('ai_prompt', $form_state->getValue('ai_prompt'))
+      ->set('article_prompt', $form_state->getValue('article_prompt'))
       ->set('cdn_domain', $form_state->getValue('cdn_domain'))
       ->save();
 
