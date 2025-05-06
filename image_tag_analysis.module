@@ -381,12 +381,20 @@ function _image_tag_analysis_match_product_tags(array $items) {
   $names = [];
 
   foreach ($items as $item) {
-    if (!empty($item['Product Name'])) $names[] = trim($item['Product Name']);
+    // Skip 'Product Name' with "Sponsor"
+    if (!empty($item['Product Name']) && stripos($item['Product Name'], 'Sponsor') === false) {
+      $names[] = trim($item['Product Name']);
+    }
+
+    // Always consider Brand and Category if not duplicate
     if (!empty($item['Brand'])) $names[] = trim($item['Brand']);
-    if (!empty($item['Category'])) $names[] = trim($item['Category']);
+    if (!empty($item['Category']) && stripos($item['Category'], 'Sponsor') === false) {
+      $names[] = trim($item['Category']);
+    }
   }
 
   $names = array_filter(array_unique($names));
+
   if (empty($names)) {
     \Drupal::logger('image_tag_analysis')->notice('⚠️ No valid tag names extracted from AI.');
     return [];
@@ -398,49 +406,28 @@ function _image_tag_analysis_match_product_tags(array $items) {
 
   foreach ($names as $name) {
     $normalized = strtolower($name);
+    if (in_array($normalized, ['unknown', 'n/a', 'not sure', '-', ''])) continue;
 
-    // Skip invalid values
-    if (in_array($normalized, ['unknown', 'n/a', 'not sure', '-', ''])) {
-      \Drupal::logger('image_tag_analysis')->notice('❌ Skipping invalid tag: @name', ['@name' => $name]);
-      continue;
-    }
-
-    // Attempt to find matching term
     $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
       'vid' => 'product_tags',
       'name' => $name,
     ]);
     $term = reset($terms);
 
-    if ($term) {
-      \Drupal::logger('image_tag_analysis')->notice('✅ Matched existing tag: @name (tid: @tid)', [
-        '@name' => $name,
-        '@tid' => $term->id(),
-      ]);
-    } else {
-      // Auto-create if not found
-      $term = Term::create([
-        'vid' => 'product_tags',
-        'name' => $name,
-      ]);
+    if (!$term) {
+      $term = Term::create(['vid' => 'product_tags', 'name' => $name]);
       $term->save();
-
-      \Drupal::logger('image_tag_analysis')->notice('➕ Auto-created new tag: @name (tid: @tid)', [
-        '@name' => $name,
-        '@tid' => $term->id(),
-      ]);
+      \Drupal::logger('image_tag_analysis')->notice('➕ Auto-created new tag: @name (tid: @tid)', ['@name' => $name, '@tid' => $term->id()]);
+    } else {
+      \Drupal::logger('image_tag_analysis')->notice('✅ Matched existing tag: @name (tid: @tid)', ['@name' => $name, '@tid' => $term->id()]);
     }
 
     $term_ids[] = ['target_id' => $term->id()];
   }
 
-  if (!empty($term_ids)) {
-    \Drupal::logger('image_tag_analysis')->notice('🏷️ Final tags assigned: @tids', [
-      '@tids' => implode(', ', array_column($term_ids, 'target_id')),
-    ]);
-  } else {
-    \Drupal::logger('image_tag_analysis')->notice('⚠️ No tags assigned — no match or valid terms.');
-  }
+  \Drupal::logger('image_tag_analysis')->notice('🏷️ Final tags assigned: @tids', [
+    '@tids' => implode(', ', array_column($term_ids, 'target_id')),
+  ]);
 
   return $term_ids;
 }
