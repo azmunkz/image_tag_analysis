@@ -216,10 +216,10 @@ function _image_tag_analysis_process_article_by_image(NodeInterface $node) {
       return;
     }
 
-    if ($node->hasField('field_product_tags')) {
+    if ($node->hasField('field_image_product_tags')) {
       $term_ids = _image_tag_analysis_match_product_tags($data['items']);
       if (!empty($term_ids)) {
-        $node->set('field_product_tags', $term_ids);
+        $node->set('field_image_product_tags', $term_ids);
         \Drupal::logger('image_tag_analysis')->notice('Matched image tags assigned to article @nid: @tags', [
           '@nid' => $node->id(),
           '@tags' => implode(', ', array_column($term_ids, 'target_id')),
