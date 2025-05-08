@@ -1,6 +1,23 @@
-image_tag_analysis.admin_settings:
+# Parent menu group - use existing route as parent
+image_tag_analysis.settings_group:
   title: 'Image Tag Analysis'
-  description: 'Configure prompt for AI image tagging.'
-  parent: system.admin_config
+  description: 'Configuration for Image Tag Analysis module'
   route_name: image_tag_analysis.settings
-  weight: 100
+  parent: system.admin_config
+  weight: 10
+
+# Main Settings link
+image_tag_analysis.main_settings:
+  title: 'Image Tag Analysis Settings'
+  description: 'Configure tag detection, AI prompts, and other features.'
+  route_name: image_tag_analysis.settings
+  parent: image_tag_analysis.settings_group
+  weight: 1
+
+# Slider Settings link
+image_tag_analysis.slider_settings:
+  title: 'Image Tag Slider Settings'
+  description: 'Configure slider layout and behavior.'
+  route_name: image_tag_analysis.slider_settings
+  parent: image_tag_analysis.settings_group
+  weight: 2

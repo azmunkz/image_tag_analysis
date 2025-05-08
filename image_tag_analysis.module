@@ -432,4 +432,14 @@ function _image_tag_analysis_match_product_tags(array $items) {
   return $term_ids;
 }
 
-
+/**
+ * Implements hook_theme()
+ */
+function image_tag_analysis_theme($existing, $type, $theme, $path) {
+  return [
+    'matched_products_slider' => [
+      'variables' => ['items' => NULL],
+      'template' => 'matched-products-slider'
+    ]
+  ];
+}

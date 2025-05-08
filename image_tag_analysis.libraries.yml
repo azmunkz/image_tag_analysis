@@ -1,0 +1,10 @@
+slider:
+  css:
+    theme:
+      https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css: {}
+      css/matched-products-slider.css: {}
+  js:
+    https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js: {}
+    js/matched-products-slider.js: {}
+  dependencies:
+    - core/drupal

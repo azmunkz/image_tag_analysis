@@ -5,3 +5,11 @@ image_tag_analysis.settings:
     _title: 'Image Tag Analysis Settings'
   requirements:
     _permission: 'administer site configuration'
+
+image_tag_analysis.slider_settings:
+  path: '/admin/config/image-tag-analysis/slider-settings'
+  defaults:
+    _form: '\Drupal\image_tag_analysis\Form\SliderSettingsForm'
+    _title: 'Slider Settings'
+  requirements:
+    _permission: 'administer site configuration'

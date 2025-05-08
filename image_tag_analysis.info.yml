@@ -6,3 +6,5 @@ package: Custom
 dependencies:
   - taxonomy
   - key
+  - node
+  - block
