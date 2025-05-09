@@ -13,3 +13,20 @@ image_tag_analysis.slider_settings:
     _title: 'Slider Settings'
   requirements:
     _permission: 'administer site configuration'
+
+######################################################
+#URL: /image-tag-analysis/run-tagging/{nid}
+#Controller: ImageTaggingController::runTagging
+#Access: All user tha can access content (chnage to Admin to limit access)
+#Dynamic Parameter: {nid} = ID node product_catalog
+#######################################################
+image_tag_analysis.run_tagging:
+  path: '/image-tag-analysis/run-tagging/{nid}'
+  defaults:
+    _controller: '\Drupal\image_tag_analysis\Controller\ImageTaggingController::runTagging'
+    _title: 'Run Image Tagging'
+  requirements:
+    _permission: 'access content'
+    nid: '\d+'
+  options:
+    _access_mode: 'ANY'

@@ -1,89 +1,109 @@
 <?php
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 use Drupal\taxonomy\Entity\Term;
-use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Implements hook_node_presave().
  */
 function image_tag_analysis_node_presave(NodeInterface $node) {
-  \Drupal::logger('image_tag_analysis')->notice('Presave hook triggered for: @type (nid @nid)', [
-    '@type' => $node->bundle(),
-    '@nid' => $node->id(),
-  ]);
-
-  if ($node->bundle() === 'product_catalog' && $node->isNew()) {
-    _image_tag_analysis_process_node($node);
-  }
-
   if ($node->bundle() === 'article') {
-    _image_tag_analysis_process_article_by_image($node);
+    _image_tag_analysis_process_node($node, FALSE); // Match only
   }
 }
 
+/**
+ * Implements hook_page_attachments().
+ */
+function image_tag_analysis_page_attachments(array &$attachments) {
+  $route_match = \Drupal::routeMatch();
+  $node = $route_match->getParameter('node');
 
+  \Drupal::logger('image_tag_analysis')->notice('📡 Checking page attachments...');
+
+  if (
+    $route_match->getRouteName() === 'entity.node.canonical' &&
+    $node instanceof NodeInterface &&
+    $node->bundle() === 'product_catalog'
+  ) {
+    $already_tagged = !$node->get('field_product_tags')->isEmpty();
+
+    $attachments['#attached']['library'][] = 'image_tag_analysis/image_tag_trigger';
+    $attachments['#attached']['drupalSettings']['nid'] = $node->id();
+    $attachments['#attached']['drupalSettings']['imageTagAnalysisAlreadyTagged'] = $already_tagged;
+
+    \Drupal::logger('image_tag_analysis')->notice('📡 JS triggered for node nid: @nid', ['@nid' => $node->id()]);
+  }
+}
 
 /**
- * Alter node form to add Re-analyze button for product_catalog.
+ * Alter node form to add Re-analyze button.
  */
 function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterface $form_state, $form_id) {
   $node = $form_state->getFormObject()->getEntity();
+
   if ($node->bundle() === 'product_catalog') {
-    $form['re_analyze_button'] = [
+    $form['reanalyze'] = [
       '#type' => 'submit',
       '#value' => t('Re-analyze Image'),
       '#submit' => ['image_tag_analysis_reanalyze_submit'],
-      '#attributes' => [
-        'onclick' => "return confirm('Are you sure you want to re-analyze the image? This will overwrite the existing tags and description.');",
-      ],
-      '#weight' => 100,
+      '#weight' => 99,
     ];
   }
-
-  if ($node->bundle() === 'article') {
-    $form['re_analyze_button'] = [
+  elseif ($node->bundle() === 'article') {
+    $form['reanalyze'] = [
       '#type' => 'submit',
       '#value' => t('Re-analyze Image'),
       '#submit' => ['image_tag_analysis_reanalyze_submit_article'],
-      '#attributes' => [
-        'onclick' => "return confirm('Re-analyze the article image? Existing tags will be replaced.');",
-      ],
-      '#weight' => 100,
+      '#weight' => 99,
     ];
   }
 }
 
-/**
- * Submit handler for Re-analyze Image button.
- */
 function image_tag_analysis_reanalyze_submit(array &$form, FormStateInterface $form_state) {
   $node = $form_state->getFormObject()->getEntity();
-  _image_tag_analysis_process_node($node);
+  _image_tag_analysis_process_node($node, TRUE); // create tag
   $node->save();
-  \Drupal::messenger()->addStatus(t('Image has been re-analyzed using AI.'));
+  \Drupal::messenger()->addStatus(t('Image has been re-analyzed.'));
 }
 
 function image_tag_analysis_reanalyze_submit_article(array &$form, FormStateInterface $form_state) {
   $node = $form_state->getFormObject()->getEntity();
-  _image_tag_analysis_process_article_by_image($node);
+  _image_tag_analysis_process_node($node, FALSE); // match only
   $node->save();
-  \Drupal::messenger()->addStatus(t('Article image has been re-analyzed using AI.'));
+  \Drupal::messenger()->addStatus(t('Article image has been re-analyzed.'));
 }
 
-
 /**
- * Core AI logic to scan image and assign Product Tags.
+ * Implements hook_theme().
  */
-function _image_tag_analysis_process_node(NodeInterface $node) {
-  if (!$node->hasField('field_product_image') || $node->get('field_product_image')->isEmpty()) {
+function image_tag_analysis_theme($existing, $type, $theme, $path) {
+  return [
+    'matched_products_slider' => [
+      'variables' => ['items' => NULL],
+      'template' => 'matched-products-slider'
+    ]
+  ];
+}
+
+function _image_tag_analysis_process_node(NodeInterface $node, $create_missing = TRUE) {
+  \Drupal::logger('image_tag_analysis')->notice('🔍 Tagging START for @type nid:@nid (create_missing: @mode)', [
+    '@type' => $node->bundle(),
+    '@nid' => $node->id(),
+    '@mode' => $create_missing ? 'TRUE' : 'FALSE'
+  ]);
+
+  $field_name = $node->bundle() === 'article' ? 'field_image' : 'field_product_image';
+  $target_field = $node->bundle() === 'article' ? 'field_image_product_tags' : 'field_product_tags';
+
+  if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
     return;
   }
 
-  $file = $node->get('field_product_image')->entity;
+  $file = $node->get($field_name)->entity;
   $uri = $file->getFileUri();
   $file_system = \Drupal::service('file_system');
-
   $image_contents = NULL;
 
   if (str_starts_with($uri, 's3://')) {
@@ -91,17 +111,12 @@ function _image_tag_analysis_process_node(NodeInterface $node) {
     if (empty($cdn_domain) && \Drupal::hasService('settings')) {
       $cdn_domain = \Drupal::service('settings')->get('image_tag_analysis.cdn_domain');
     }
-    if (empty($cdn_domain)) {
-      \Drupal::logger('image_tag_analysis')->error('CDN domain not configured. Please set via Admin UI or settings.php.');
-      return;
-    }
     $path = substr($uri, strlen('s3://'));
     $root_folder = \Drupal::config('s3fs.settings')->get('root_folder');
     if (!empty($root_folder)) {
       $path = $root_folder . '/' . $path;
     }
     $image_url = rtrim($cdn_domain, '/') . '/' . ltrim($path, '/');
-    \Drupal::logger('image_tag_analysis')->notice('Fetching image from CDN URL: @url', ['@url' => $image_url]);
     $image_contents = @file_get_contents($image_url);
   } else {
     $real_path = $file_system->realpath($uri);
@@ -110,8 +125,7 @@ function _image_tag_analysis_process_node(NodeInterface $node) {
     }
   }
 
-  if ($image_contents === FALSE || empty($image_contents)) {
-    \Drupal::logger('image_tag_analysis')->error('Cannot load image from URI: @uri', ['@uri' => $uri]);
+  if (empty($image_contents)) {
     return;
   }
 
@@ -119,7 +133,7 @@ function _image_tag_analysis_process_node(NodeInterface $node) {
   $prompt = \Drupal::config('image_tag_analysis.settings')->get('ai_prompt');
   $response = _image_tag_analysis_call_ai($image_data, $prompt);
 
-  \Drupal::logger('image_tag_analysis')->notice('AI raw response: @res', ['@res' => $response]);
+  \Drupal::logger('image_tag_analysis')->notice('🧪 AI raw response: @res', ['@res' => $response]);
 
   if (!empty($response)) {
     if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
@@ -127,218 +141,16 @@ function _image_tag_analysis_process_node(NodeInterface $node) {
     }
 
     $data = json_decode($response, TRUE);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-      \Drupal::logger('image_tag_analysis')->error('JSON decode error: @error', ['@error' => json_last_error_msg()]);
-      return;
+    if (!empty($data['description']) && $node->hasField('field_img_tag_analysis_desc')) {
+      $node->set('field_img_tag_analysis_desc', $data['description']);
     }
-
-    if (is_array($data)) {
-      if (!empty($data['description']) && $node->hasField('field_img_tag_analysis_desc')) {
-        $node->set('field_img_tag_analysis_desc', $data['description']);
-      }
-      if (!empty($data['items'])) {
-        $term_ids = _image_tag_analysis_match_product_tags($data['items']);
-        if (!empty($term_ids) && $node->hasField('field_product_tags')) {
-          $node->set('field_product_tags', $term_ids);
-          \Drupal::logger('image_tag_analysis')->notice('Matched tags assigned to node @nid: @tags', [
-            '@nid' => $node->id(),
-            '@tags' => implode(', ', array_column($term_ids, 'target_id')),
-          ]);
-        }
-      }
+    if (!empty($data['items']) && $node->hasField($target_field)) {
+      $term_ids = _image_tag_analysis_match_product_tags($data['items'], $create_missing);
+      $node->set($target_field, $term_ids);
     }
   }
 }
 
-function _image_tag_analysis_process_article_by_image(NodeInterface $node) {
-  if (!$node->hasField('field_image') || $node->get('field_image')->isEmpty()) return;
-
-  $file = $node->get('field_image')->entity;
-  $uri = $file->getFileUri();
-  $file_system = \Drupal::service('file_system');
-
-  $image_contents = NULL;
-
-  if (str_starts_with($uri, 's3://')) {
-    $cdn_domain = \Drupal::config('image_tag_analysis.settings')->get('cdn_domain');
-    if (empty($cdn_domain) && \Drupal::hasService('settings')) {
-      $cdn_domain = \Drupal::service('settings')->get('image_tag_analysis.cdn_domain');
-    }
-    if (empty($cdn_domain)) {
-      \Drupal::logger('image_tag_analysis')->error('CDN domain not configured for article image.');
-      return;
-    }
-    $path = substr($uri, strlen('s3://'));
-    $root_folder = \Drupal::config('s3fs.settings')->get('root_folder');
-    if (!empty($root_folder)) {
-      $path = $root_folder . '/' . $path;
-    }
-    $image_url = rtrim($cdn_domain, '/') . '/' . ltrim($path, '/');
-    \Drupal::logger('image_tag_analysis')->notice('Fetching article image from S3: @url', ['@url' => $image_url]);
-    $image_contents = @file_get_contents($image_url);
-  } else {
-    $real_path = $file_system->realpath($uri);
-    if (!empty($real_path)) {
-      $image_contents = @file_get_contents($real_path);
-    }
-  }
-
-  if ($image_contents === FALSE || empty($image_contents)) {
-    \Drupal::logger('image_tag_analysis')->error('Failed to load article image from: @uri', ['@uri' => $uri]);
-    return;
-  }
-
-  $image_data = base64_encode($image_contents);
-  $prompt = \Drupal::config('image_tag_analysis.settings')->get('article_prompt');
-  if (empty($prompt)) {
-    $prompt = "Analyze this image and extract product-related concepts such as brand, product name, or category. Return in strict JSON format with 'items' key.";
-  }
-
-  $response = _image_tag_analysis_call_ai($image_data, $prompt);
-
-  \Drupal::logger('image_tag_analysis')->notice('Article image AI raw response: @res', ['@res' => $response]);
-
-  if (!empty($response)) {
-    if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
-      $response = trim($matches[1]);
-    }
-
-    $data = json_decode($response, TRUE);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-      \Drupal::logger('image_tag_analysis')->error('JSON decode error (article image): @msg', ['@msg' => json_last_error_msg()]);
-      return;
-    }
-
-    // ✅ Fallback jika tiada item dalam image
-    if (empty($data['items'])) {
-      \Drupal::logger('image_tag_analysis')->notice('No tags detected from image. Fallback to article content.');
-      _image_tag_analysis_process_article_fallback_text($node);
-      return;
-    }
-
-    if ($node->hasField('field_image_product_tags')) {
-      $term_ids = _image_tag_analysis_match_product_tags($data['items']);
-      if (!empty($term_ids)) {
-        $node->set('field_image_product_tags', $term_ids);
-        \Drupal::logger('image_tag_analysis')->notice('Matched image tags assigned to article @nid: @tags', [
-          '@nid' => $node->id(),
-          '@tags' => implode(', ', array_column($term_ids, 'target_id')),
-        ]);
-      }
-    }
-  }
-}
-
-function _image_tag_analysis_process_article_fallback_text(NodeInterface $node) {
-  if (!$node->hasField('body') || $node->get('body')->isEmpty()) return;
-
-  $title = $node->label();
-  $body = $node->get('body')->value;
-  $text_input = "Title: " . $title . "\n\n" . $body;
-
-  $prompt = \Drupal::config('image_tag_analysis.settings')->get('article_prompt');
-  if (empty($prompt)) {
-    $prompt = "From the article content below, extract potential product-related terms such as product names, brands, or categories that may relate to known product tags. Return result in this JSON format:
-
-    {
-      \"items\": [
-        {\"Product Name\": \"Nike\"},
-        {\"Brand\": \"Adidas\"},
-        {\"Category\": \"Running Shoes\"}
-      ]
-    }";
-  }
-
-  $response = _image_tag_analysis_call_ai(base64_encode($text_input), $prompt, TRUE);
-
-  \Drupal::logger('image_tag_analysis')->notice('Article fallback text AI response: @res', ['@res' => $response]);
-
-  if (!empty($response)) {
-    if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
-      $response = trim($matches[1]);
-    }
-
-    $data = json_decode($response, TRUE);
-    \Drupal::logger('image_tag_analysis')->notice('Fallback AI decoded data: @json', ['@json' => print_r($data, TRUE)]);
-
-    if (json_last_error() !== JSON_ERROR_NONE) {
-      \Drupal::logger('image_tag_analysis')->error('Fallback JSON decode error: @msg', ['@msg' => json_last_error_msg()]);
-      return;
-    }
-
-    if (!empty($data['items']) && $node->hasField('field_image_product_tags')) {
-      \Drupal::logger('image_tag_analysis')->notice('🧪 Fallback: Passing items to match_product_tags(): @count items', [
-        '@count' => count($data['items']),
-      ]);
-
-      $term_ids = _image_tag_analysis_match_product_tags($data['items']);
-      if (!empty($term_ids)) {
-        $node->set('field_image_product_tags', $term_ids);
-        \Drupal::logger('image_tag_analysis')->notice('Matched fallback text tags assigned to article @nid: @tags', [
-          '@nid' => $node->id(),
-          '@tags' => implode(', ', array_column($term_ids, 'target_id')),
-        ]);
-      }
-    } else {
-      \Drupal::logger('image_tag_analysis')->notice('⚠️ Fallback: No valid items or missing field_product_tags');
-    }
-  }
-}
-
-
-function _image_tag_analysis_process_article(NodeInterface $node) {
-  if (!$node->hasField('body') || $node->get('body')->isEmpty()) return;
-
-  $title = $node->label();
-  $body = $node->get('body')->value;
-  $text_input = "Title: " . $title . "\n\n" . $body;
-
-  $prompt = \Drupal::config('image_tag_analysis.settings')->get('article_prompt');
-  if (empty($prompt)) {
-    // fallback default prompt
-    $prompt = "From the article content below, extract potential product-related terms such as product names, brands, or categories that may relate to known product tags. Return result in this JSON format:
-
-    {
-      \"items\": [
-        {\"Product Name\": \"Nike\"},
-        {\"Brand\": \"Adidas\"},
-        {\"Category\": \"Running Shoes\"}
-      ]
-    }";
-  }
-
-  $response = _image_tag_analysis_call_ai(base64_encode($text_input), $prompt, TRUE);
-
-  \Drupal::logger('image_tag_analysis')->notice('Article AI raw response: @res', ['@res' => $response]);
-
-  if (!empty($response)) {
-    if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
-      $response = trim($matches[1]);
-    }
-
-    $data = json_decode($response, TRUE);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-      \Drupal::logger('image_tag_analysis')->error('Article AI JSON error: @msg', ['@msg' => json_last_error_msg()]);
-      return;
-    }
-
-    if (!empty($data['items']) && $node->hasField('field_product_tags')) {
-      $term_ids = _image_tag_analysis_match_product_tags($data['items']);
-      if (!empty($term_ids)) {
-        $node->set('field_product_tags', $term_ids);
-        \Drupal::logger('image_tag_analysis')->notice('Matched product tags assigned to article @nid: @tags', [
-          '@nid' => $node->id(),
-          '@tags' => implode(', ', array_column($term_ids, 'target_id')),
-        ]);
-      }
-    }
-  }
-}
-
-
-/**
- * Call OpenAI API with prompt + image.
- */
 function _image_tag_analysis_call_ai($input_data, $prompt, $is_text_only = FALSE) {
   try {
     $key_service = \Drupal::service('key.repository');
@@ -372,21 +184,14 @@ function _image_tag_analysis_call_ai($input_data, $prompt, $is_text_only = FALSE
   }
 }
 
-
-/**
- * Match or create Product Tags from AI items.
- */
-function _image_tag_analysis_match_product_tags(array $items) {
+function _image_tag_analysis_match_product_tags(array $items, $create_missing = TRUE) {
   $term_ids = [];
   $names = [];
 
   foreach ($items as $item) {
-    // Skip 'Product Name' with "Sponsor"
     if (!empty($item['Product Name']) && stripos($item['Product Name'], 'Sponsor') === false) {
       $names[] = trim($item['Product Name']);
     }
-
-    // Always consider Brand and Category if not duplicate
     if (!empty($item['Brand'])) $names[] = trim($item['Brand']);
     if (!empty($item['Category']) && stripos($item['Category'], 'Sponsor') === false) {
       $names[] = trim($item['Category']);
@@ -395,51 +200,22 @@ function _image_tag_analysis_match_product_tags(array $items) {
 
   $names = array_filter(array_unique($names));
 
-  if (empty($names)) {
-    \Drupal::logger('image_tag_analysis')->notice('⚠️ No valid tag names extracted from AI.');
-    return [];
-  }
-
-  \Drupal::logger('image_tag_analysis')->notice('🌀 Starting tag match loop for names: @names', [
-    '@names' => implode(', ', $names),
-  ]);
-
   foreach ($names as $name) {
-    $normalized = strtolower($name);
-    if (in_array($normalized, ['unknown', 'n/a', 'not sure', '-', ''])) continue;
-
     $terms = \Drupal::entityTypeManager()->getStorage('taxonomy_term')->loadByProperties([
       'vid' => 'product_tags',
       'name' => $name,
     ]);
     $term = reset($terms);
 
-    if (!$term) {
+    if (!$term && $create_missing) {
       $term = Term::create(['vid' => 'product_tags', 'name' => $name]);
       $term->save();
-      \Drupal::logger('image_tag_analysis')->notice('➕ Auto-created new tag: @name (tid: @tid)', ['@name' => $name, '@tid' => $term->id()]);
-    } else {
-      \Drupal::logger('image_tag_analysis')->notice('✅ Matched existing tag: @name (tid: @tid)', ['@name' => $name, '@tid' => $term->id()]);
     }
 
-    $term_ids[] = ['target_id' => $term->id()];
+    if ($term) {
+      $term_ids[] = ['target_id' => $term->id()];
+    }
   }
 
-  \Drupal::logger('image_tag_analysis')->notice('🏷️ Final tags assigned: @tids', [
-    '@tids' => implode(', ', array_column($term_ids, 'target_id')),
-  ]);
-
   return $term_ids;
-}
-
-/**
- * Implements hook_theme()
- */
-function image_tag_analysis_theme($existing, $type, $theme, $path) {
-  return [
-    'matched_products_slider' => [
-      'variables' => ['items' => NULL],
-      'template' => 'matched-products-slider'
-    ]
-  ];
 }

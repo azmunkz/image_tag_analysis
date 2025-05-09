@@ -8,3 +8,13 @@ slider:
     js/matched-products-slider.js: {}
   dependencies:
     - core/drupal
+
+image_tag_trigger:
+  version: 1.x
+  js:
+    js/image_tag_trigger.js: {}
+  dependencies:
+    - core/drupal
+    - core/jquery
+    - core/drupalSettings
+
