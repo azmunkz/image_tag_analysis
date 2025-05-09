@@ -1,87 +1,134 @@
-# 📦 Image Tag Analysis (v9.6 Rebuild)
+# Image Tag Analysis Module
 
-Custom Drupal module to analyze uploaded images using AI and auto-generate smart tags and vivid descriptions.
+**Latest Version**: v1.4.0
 
----
+## 🧩 Features
 
-## ✨ Features
-
-- Auto-tag articles based on uploaded image contents
-- Auto-generate vivid, detailed descriptions for images
-- Manual **Re-analyze** button with Confirm Dialog for editors
-- Automatic duplicate tag filtering (AI & Backend)
-- Full compatibility with Gin Admin Theme
-- Composer installable via Private GitHub Repository
+- Automatically tag **product images** using OpenAI's GPT-4o
+- Analyze **articles** to match existing product tags (no new tag creation)
+- Supports both **manual re-analyze button** and **automatic AJAX tagging**
+- Product slider block to show matched products inside article view
+- Fully supports S3 CDN-hosted images and local file system
+- Admin-configurable prompt and CDN domain settings
 
 ---
 
-## 🛠 Installation
+## 🛠 Installation Guide
 
-1. Place the module into `modules/custom/`
-2. Enable the module via Drupal Admin UI or using Drush:
+### Required Content Types:
+1. **product_catalog**
+  - `field_product_image` (Image, required)
+  - `field_product_tags` (Term Reference → `product_tags` vocabulary)
+  - `field_product_store_name` (Text)
+  - `field_product_external_link` (Link)
 
-```
-drush en image_tag_analysis -y
-```
-3. Create new Taxonomy Vocabulary: `Image Tag Analysis`
+2. **article**
+  - `field_image` (Image, required)
+  - `field_image_product_tags` (Term Reference → `product_tags` vocabulary)
 
-4. Add the following fields to your **Article** content type:
-   - `field_image_tag_analysis` (Taxonomy Term Reference - Vocabulary: `Image Tag Analysis`)
-   - `field_image_tag_analysis_desc` (Long Text)
+### Required Taxonomy:
+- `product_tags` (Vocabulary)
 
-5Install and configure the **Key** module:
-   - Create a new Key named `openai_key`
-   - Store your OpenAI API Key securely.
-
-6Set your custom AI Prompt under:
-   - **Admin UI** ➔ Configuration ➔ Content Authoring ➔ **Image Tag Analysis Settings**
+### Required Drupal Modules:
+- `key`
+- `taxonomy`
+- `s3fs` (if using S3)
+- `image_tag_analysis` (this module)
 
 ---
 
-## 📋 Example AI Prompt (Recommended)
+## 🧠 Suggested Prompts
 
-Use the following example prompt for best results:
+### 🎯 AI Prompt for Product Image Analysis
 
 ```
-You are an expert image analyst.
+You are an expert product image analyst.
 
-First, provide a detailed, vivid description of the image, explaining the full scene, activities, outfits, brands, logos, visible texts.
+Your task:
+- Analyze the uploaded image.
+- Describe in detail all visible elements such as: product name, brand, category, sponsor logos, sleeve badges, and product-specific visual patterns.
+- Focus especially on shirt logos, emblems, and sponsor texts. These are important for tagging.
 
-Second, generate a list of only unique products and items you can identify.
+Strict Rules:
+- DO NOT include vague or generic tags like "apparel", "clothing", "Unknown", "Not sure" unless there's truly no better match.
+- Ensure each "Product Name" is unique.
+- Do NOT repeat items even if wording differs.
+- Prioritize specific brand/product over general category.
 
-Important strict rules:
-- Each "Product Name" MUST be unique.
-- If a product appears twice (even under slightly different description), list it only once.
-- Do NOT include general or vague terms ("apparel", "footwear") if a more specific product is available.
-- Prioritize brand and product over generic categories.
-- If uncertain about brand, use "Unknown".
-
-Format strictly as raw JSON:
+Return your result in clean raw JSON, no markdown, no comments. Format strictly as:
 
 {
-  "description": "Full vivid scene description...",
+  "description": "Full detailed description of the image...",
   "items": [
     {
-      "Product Name": "",
-      "Brand": "",
-      "Category": "",
-      "Features": "",
-      "Potential Value": ""
+      "Product Name": "JDT 2024 Home Shirt",
+      "Brand": "Nike",
+      "Category": "Football Jersey",
+      "Features": "Red and blue vertical stripes, club crest on chest, sponsor logos",
+      "Potential Value": "Club official merchandise"
+    },
+    {
+      "Product Name": "Daikin Sleeve Sponsor",
+      "Brand": "Daikin",
+      "Category": "Sponsorship Logo",
+      "Features": "White Daikin logo on left sleeve",
+      "Potential Value": "Official sponsor logo"
     }
   ]
 }
-
-Do NOT include any markdown. Only clean valid JSON.
 ```
 
 ---
-## 🛡 Best Practices
 
-- Recommended to use **gpt-4o** model for higher accuracy.
-- Use high-quality images with visible logos/texts.
-- Always clear cache (`drush cr`) after module installation.
-- Avoid generic prompts; use vivid and specific language.
+### 📰 AI Prompt for Article Image Tagging
+
+```
+You are an expert AI product image analyst.
+
+Your task is to analyze the uploaded product image and return detailed metadata.
+
+Steps:
+1. First, identify what type of product is shown (e.g., sneakers, football jersey, backpack, smartwatch, etc.).
+2. Detect brand name, model (if known), product category, and visible design features.
+3. Identify any sponsor logos, visible text, badges, patterns, or signature design elements.
+4. Ensure your output is relevant, specific, and avoids general or vague terms.
+
+Strict Rules:
+- Do NOT use vague terms like "apparel", "clothing", or "unknown".
+- Only include products or features that are clearly visible in the image.
+- Avoid repetition. Each item must be unique.
+- Be concise, but specific.
+- Output in clean raw JSON (no markdown, no explanation).
+
+Output format:
+
+{
+  "description": "Detailed description of what's seen in the image...",
+  "items": [
+    {
+      "Product Name": "Nike Phantom GX 2 Elite",
+      "Brand": "Nike",
+      "Category": "Football Boots",
+      "Features": "White and blue synthetic upper, asymmetric lacing, mesh tongue, bold Swoosh logo on side",
+      "Potential Value": "Top-tier pro football boot"
+    },
+    {
+      "Product Name": "Nike Swoosh Logo",
+      "Brand": "Nike",
+      "Category": "Logo",
+      "Features": "Black Nike Swoosh on lateral side",
+      "Potential Value": "Brand identity feature"
+    }
+  ]
+}
+```
 
 ---
 
-# 🚀 Enjoy Smart AI-Powered Image Tagging for your Drupal Articles!
+## ✅ Best Practices
+
+- Ensure all product images are clear, close-up, and free from excessive noise.
+- Avoid uploading watermarked or blurred images for better AI results.
+- Maintain a curated list of taxonomy terms under `product_tags` to ensure consistent tagging.
+- Use **Re-analyze** only when needed to reduce OpenAI token usage.
+- Always validate AI output and edit manually if needed.
