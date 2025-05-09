@@ -127,6 +127,10 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
         '#options' => ['attributes' => ['target' => '_blank']],
       ];
 
+      $price = $product->hasField('field_product_price') && !$product->get('field_product_price')->isEmpty()
+        ? number_format($product->get('field_product_price')->value, 2)
+        : NULL;
+
       $items[] = [
         'image' => $image_link,
         'title' => [
@@ -136,6 +140,7 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
           '#options' => ['attributes' => ['target' => '_blank']],
         ],
         'store' => ['#markup' => $store],
+        'price' => ['#markup' => $price ? 'RM' . $price : '']
       ];
 
     }

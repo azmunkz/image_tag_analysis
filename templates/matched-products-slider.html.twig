@@ -6,6 +6,9 @@
           <div class="product-image">{{ item.image }}</div>
           <h3 class="product-title">{{ item.title }}</h3>
           <div class="product-store">{{ item.store }}</div>
+          {% if item.price %}
+            <div class="product-price">{{ item.price }}</div>
+          {% endif %}
         </div>
       </div>
     {% endfor %}
