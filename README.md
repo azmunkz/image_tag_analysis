@@ -1,46 +1,64 @@
 # Image Tag Analysis Module
 
-**Latest Version**: v1.4.5
+**Version:** v1.5.0
 
-## 🧩 Features
-
-- Automatically tag **product images** using OpenAI's GPT-4o
-- Analyze **articles** to match existing product tags (no new tag creation)
-- Supports both **manual re-analyze button** and **automatic AJAX tagging**
-- Product slider block to show matched products inside article view
-- Fully supports S3 CDN-hosted images and local file system
-- Admin-configurable prompt and CDN domain settings
+This Drupal module uses AI to analyze uploaded images in content nodes (like Product or Article) and auto-tag them based on the visual content. It also provides slider-based matched product suggestions and AJAX-based re-analyze support.
 
 ---
 
-## 🛠 Installation Guide
+## ✅ Features
 
-### Required Content Types:
-1. **product_catalog**
-  - `field_product_image` (Image, required)
-  - `field_product_tags` (Term Reference → `product_tags` vocabulary)
-  - `field_product_store_name` (Text)
-  - `field_product_external_link` (Link)
+- Auto-analyze uploaded images using OpenAI
+- Extract product tags, brands, categories
+- Create or match tags automatically
+- Product slider block with configurable Swiper.js settings
+- AJAX-based reanalyze button (no page reload)
+- Settings forms for prompt, slider behavior, and CDN fallback
+- Built-in fallback if CDN or S3 is not configured
 
-2. **article**
-  - `field_image` (Image, required)
-  - `field_image_product_tags` (Term Reference → `product_tags` vocabulary)
+---
 
-### Required Taxonomy:
-- `product_tags` (Vocabulary)
+## ⚙️ Installation Guide
 
-### Required Drupal Modules:
+### 1. Required Modules
+Make sure the following modules are enabled before installation:
+
 - `key`
 - `taxonomy`
-- `s3fs` (if using S3)
-- `image_tag_analysis` (this module)
+- `node`
+- `block`
+- `s3fs`
+- `cdn`
+- `ai`
+
+These dependencies are auto-validated when enabling the module.
+
+### 2. Content Type: **Product Catalog**
+
+The module will automatically create this content type. Ensure these field configurations:
+
+| Field                        | Field Name               | Type               | Configurations                                     |
+|-----------------------------|--------------------------|--------------------|----------------------------------------------------|
+| Product Image               | `field_product_image`    | Image              | Required                                           |
+| Product Tags                | `field_product_tags`     | Term reference     | Unlimited. Vocabulary: `Product Tags`             |
+| Product Category            | `field_product_category` | Term reference     | Unlimited. Vocabulary: `Product Category`         |
+| Product Price               | `field_product_price`    | Decimal            | Optional                                           |
+| External Link               | `field_product_external_link` | Link         | Optional                                           |
+| Store Name                  | `field_product_store_name` | Text (plain)     | Optional                                           |
+| AI Description              | `field_img_tag_analysis_desc` | Long text     | Optional                                           |
+
+### 3. Content Type: **Article**
+
+| Field                        | Field Name               | Type               | Configurations                                     |
+|-----------------------------|--------------------------|--------------------|----------------------------------------------------|
+| Image                       | `field_image`            | Image              | Required                                           |
+| Product Tags (Matched)      | `field_image_product_tags` | Term reference  | Unlimited. Vocabulary: `Product Tags`             |
 
 ---
 
-## 🧠 Suggested Prompts
+## 🧠 Suggested Prompt
 
-### 🎯 AI Prompt for Product Image Analysis
-
+### Product Image Analysis
 ```
 You are an expert product image analyst.
 
@@ -78,17 +96,14 @@ Return your result in clean raw JSON, no markdown, no comments. Format strictly 
 }
 ```
 
----
-
-### 📰 AI Prompt for Article Image Tagging
-
+### Article Image Prompt
 ```
 You are an expert AI product image analyst.
 
 Your task is to analyze the uploaded product image and return detailed metadata.
 
 Steps:
-1. First, identify what type of product is shown (e.g., sneakers, football jersey, backpack, smartwatch, etc.).
+1. Identify what type of product is shown (e.g., sneakers, football jersey, backpack, smartwatch, etc.).
 2. Detect brand name, model (if known), product category, and visible design features.
 3. Identify any sponsor logos, visible text, badges, patterns, or signature design elements.
 4. Ensure your output is relevant, specific, and avoids general or vague terms.
@@ -125,10 +140,43 @@ Output format:
 
 ---
 
-## ✅ Best Practices
+## 🔑 Best Practices
 
-- Ensure all product images are clear, close-up, and free from excessive noise.
-- Avoid uploading watermarked or blurred images for better AI results.
-- Maintain a curated list of taxonomy terms under `product_tags` to ensure consistent tagging.
-- Use **Re-analyze** only when needed to reduce OpenAI token usage.
-- Always validate AI output and edit manually if needed.
+- Always set the correct AI prompts in module settings page
+- Use meaningful product images (clear, visible branding)
+- Tag `product_catalog` nodes first to ensure accurate matching in `article` nodes
+- Use Re-analyze if tagging result looks incomplete or outdated
+- Enable CDN only if public access to image is required
+
+---
+
+Ready to tag your content like a pro 🧠🔥
+
+
+---
+
+## 📦 Installation Steps
+
+1. Navigate to your Drupal project directory.
+2. Ensure folder exists: `web/modules/custom`
+3. Clone the module into that folder:
+   ```bash
+   git clone [your-repo-url] web/modules/custom/image_tag_analysis
+   ```
+4. Enable the module:
+   ```bash
+   drush en image_tag_analysis -y
+   ```
+
+---
+
+## 🧱 Displaying the Product Slider
+
+To place the matched product slider block on article pages:
+
+1. Go to: `Structure` → `Block Layout`
+2. Find the **Content** region (or your preferred region)
+3. Click **Place block**
+4. Search for: `Matched Products Slider`
+5. Place and configure visibility as needed
+
