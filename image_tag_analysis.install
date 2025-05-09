@@ -1,0 +1,103 @@
+<?php
+
+/**
+ * Implements hook_requirements().
+ */
+function image_tag_analysis_requirements($phase) {
+  $requirements = [];
+
+  if ($phase === 'runtime') {
+    $required_modules = ['key', 'taxonomy', 's3fs', 'cdn', 'ai'];
+    foreach ($required_modules as $module) {
+      $enabled = \Drupal::moduleHandler()->moduleExists($module);
+      $requirements["image_tag_analysis_module_{$module}"] = [
+        'title' => t('@module module', ['@module' => ucfirst($module)]),
+        'value' => $enabled ? t('Enabled') : t('Missing'),
+        'severity' => $enabled ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+        'description' => $enabled ? '' : t('This module is required by Image Tag Analysis.'),
+      ];
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_install().
+ */
+// Extend hook_install() to create content types and fields
+function image_tag_analysis_install() {
+  \Drupal::logger('image_tag_analysis')->notice('🛠 Running installation script...');
+
+  // Ensure taxonomy vocabulary exists
+  if (!\Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->load('product_tags')) {
+    $vocab = \Drupal\taxonomy\Entity\Vocabulary::create([
+      'vid' => 'product_tags',
+      'name' => 'Product Tags',
+    ]);
+    $vocab->save();
+    \Drupal::logger('image_tag_analysis')->notice('✅ Created vocabulary: product_tags');
+  }
+
+  // Create content types
+  _image_tag_analysis_create_content_type('product_catalog', 'Product Catalog');
+  _image_tag_analysis_create_content_type('article', 'Article');
+
+  // Add fields to product_catalog
+  _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_image', 'image', 'Product Image');
+  _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_tags', 'entity_reference', 'Product Tags', [
+    'target_type' => 'taxonomy_term',
+  ]);
+  _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_store_name', 'string', 'Store Name');
+  _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_external_link', 'link', 'External Link');
+  _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_price', 'decimal', 'Product Price');
+  _image_tag_analysis_add_field('node', 'product_catalog', 'field_img_tag_analysis_desc', 'text_long', 'AI Description');
+
+  // Add fields to article
+  _image_tag_analysis_add_field('node', 'article', 'field_image', 'image', 'Image');
+  _image_tag_analysis_add_field('node', 'article', 'field_image_product_tags', 'entity_reference', 'Product Tags (Matched)', [
+    'target_type' => 'taxonomy_term',
+  ]);
+}
+
+/**
+ * Helper to create a content type.
+ */
+function _image_tag_analysis_create_content_type($type, $label) {
+  if (!\Drupal::entityTypeManager()->getStorage('node_type')->load($type)) {
+    $content_type = \Drupal\node\Entity\NodeType::create([
+      'type' => $type,
+      'name' => $label,
+    ]);
+    $content_type->save();
+    \Drupal::logger('image_tag_analysis')->notice('🆕 Created content type: @type', ['@type' => $type]);
+  }
+}
+
+/**
+ * Helper to create a field for a content type.
+ */
+function _image_tag_analysis_add_field($entity_type, $bundle, $field_name, $field_type, $label, array $settings = []) {
+  $field_storage = \Drupal::entityTypeManager()->getStorage('field_storage_config')->load("$entity_type.$field_name");
+  if (!$field_storage) {
+    $field_storage = \Drupal\field\Entity\FieldStorageConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => $entity_type,
+      'type' => $field_type,
+      'settings' => $settings,
+    ]);
+    $field_storage->save();
+  }
+
+  $field_config = \Drupal::entityTypeManager()->getStorage('field_config')->load("$entity_type.$bundle.$field_name");
+  if (!$field_config) {
+    $field_config = \Drupal\field\Entity\FieldConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => $entity_type,
+      'bundle' => $bundle,
+      'label' => $label,
+    ]);
+    $field_config->save();
+    \Drupal::logger('image_tag_analysis')->notice('➕ Field @field added to @bundle', ['@field' => $field_name, '@bundle' => $bundle]);
+  }
+}
