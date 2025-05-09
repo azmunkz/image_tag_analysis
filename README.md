@@ -1,6 +1,6 @@
 # Image Tag Analysis Module
 
-**Version:** v1.5.0
+**Version:** v1.4
 
 This Drupal module uses AI to analyze uploaded images in content nodes (like Product or Article) and auto-tag them based on the visual content. It also provides slider-based matched product suggestions and AJAX-based re-analyze support.
 
