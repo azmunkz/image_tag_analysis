@@ -29,7 +29,6 @@ Make sure the following modules are enabled before installation:
 - `block`
 - `s3fs`
 - `cdn`
-- `ai`
 
 These dependencies are auto-validated when enabling the module.
 
@@ -179,4 +178,27 @@ To place the matched product slider block on article pages:
 3. Click **Place block**
 4. Search for: `Matched Products Slider`
 5. Place and configure visibility as needed
+
+
+
+---
+
+## 📦 Composer Installation (Dependencies)
+
+If you're managing dependencies via Composer, run the following commands:
+
+```bash
+composer require 'drupal/key:^1.17'
+composer require 'drupal/cdn:^5.0@alpha'
+composer require 'drupal/s3fs:^3.7'
+```
+
+> Make sure these modules are enabled before installing Image Tag Analysis:
+>
+> - `key`
+> - `cdn`
+> - `s3fs`
+> - `taxonomy`
+> - `node`
+> - `block`
 
