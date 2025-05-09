@@ -1,6 +1,6 @@
 # Image Tag Analysis Module
 
-**Latest Version**: v1.4.0
+**Latest Version**: v1.4.5
 
 ## 🧩 Features
 
