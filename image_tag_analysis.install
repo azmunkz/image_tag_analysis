@@ -25,18 +25,23 @@ function image_tag_analysis_requirements($phase) {
 /**
  * Implements hook_install().
  */
-// Extend hook_install() to create content types and fields
 function image_tag_analysis_install() {
   \Drupal::logger('image_tag_analysis')->notice('🛠 Running installation script...');
 
-  // Ensure taxonomy vocabulary exists
-  if (!\Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->load('product_tags')) {
-    $vocab = \Drupal\taxonomy\Entity\Vocabulary::create([
-      'vid' => 'product_tags',
-      'name' => 'Product Tags',
-    ]);
-    $vocab->save();
-    \Drupal::logger('image_tag_analysis')->notice('✅ Created vocabulary: product_tags');
+  // Ensure required vocabularies exist
+  $vocabularies = [
+    'product_tags' => 'Product Tags',
+    'product_category' => 'Product Category',
+  ];
+  foreach ($vocabularies as $vid => $name) {
+    if (!\Drupal::entityTypeManager()->getStorage('taxonomy_vocabulary')->load($vid)) {
+      $vocab = \Drupal\taxonomy\Entity\Vocabulary::create([
+        'vid' => $vid,
+        'name' => $name,
+      ]);
+      $vocab->save();
+      \Drupal::logger('image_tag_analysis')->notice('✅ Created vocabulary: @vid', ['@vid' => $vid]);
+    }
   }
 
   // Create content types
@@ -51,6 +56,10 @@ function image_tag_analysis_install() {
   _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_store_name', 'string', 'Store Name');
   _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_external_link', 'link', 'External Link');
   _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_price', 'decimal', 'Product Price');
+  _image_tag_analysis_add_field('node', 'product_catalog', 'field_product_category', 'entity_reference', 'Product Category', [
+    'target_type' => 'taxonomy_term',
+    'handler_settings' => ['target_bundles' => ['product_category' => 'product_category']],
+  ]);
   _image_tag_analysis_add_field('node', 'product_catalog', 'field_img_tag_analysis_desc', 'text_long', 'AI Description');
 
   // Add fields to article

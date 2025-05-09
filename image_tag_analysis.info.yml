@@ -8,3 +8,5 @@ dependencies:
   - key
   - node
   - block
+  - s3fs
+  - cdn

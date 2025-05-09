@@ -111,19 +111,38 @@ function _image_tag_analysis_process_node(NodeInterface $node, $create_missing =
     if (empty($cdn_domain) && \Drupal::hasService('settings')) {
       $cdn_domain = \Drupal::service('settings')->get('image_tag_analysis.cdn_domain');
     }
+
     $path = substr($uri, strlen('s3://'));
     $root_folder = \Drupal::config('s3fs.settings')->get('root_folder');
     if (!empty($root_folder)) {
       $path = $root_folder . '/' . $path;
     }
-    $image_url = rtrim($cdn_domain, '/') . '/' . ltrim($path, '/');
-    $image_contents = @file_get_contents($image_url);
+
+    $image_url = !empty($cdn_domain) ? rtrim($cdn_domain, '/') . '/' . ltrim($path, '/') : NULL;
+
+    if (!empty($image_url)) {
+      \Drupal::logger('image_tag_analysis')->notice('🌐 Trying CDN image URL: @url', ['@url' => $image_url]);
+      $image_contents = @file_get_contents($image_url);
+      if ($image_contents === FALSE) {
+        \Drupal::logger('image_tag_analysis')->warning('⚠️ CDN fetch failed for @url, falling back to realpath.', ['@url' => $image_url]);
+        $image_contents = NULL;
+      }
+    }
+
+    if (empty($image_contents)) {
+      $real_path = $file_system->realpath($uri);
+      \Drupal::logger('image_tag_analysis')->notice('🌀 Fallback to realpath: @path', ['@path' => $real_path]);
+      if (!empty($real_path)) {
+        $image_contents = @file_get_contents($real_path);
+      }
+    }
   } else {
     $real_path = $file_system->realpath($uri);
     if (!empty($real_path)) {
       $image_contents = @file_get_contents($real_path);
     }
   }
+
 
   if (empty($image_contents)) {
     return;
