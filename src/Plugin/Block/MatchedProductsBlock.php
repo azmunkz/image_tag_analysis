@@ -40,21 +40,8 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
   }
 
   public function build() {
-
-    \Drupal::logger('image_tag_analysis')->notice('🔧 MatchedProductsBlock STARTED');
-
-    $current_route = \Drupal::routeMatch()->getRouteName();
-    if (strpos($current_route, 'entity.node.canonical') === false) {
-      return []; // only render on full node page
-    }
-
-    $node = \Drupal::routeMatch()->getParameter('node');
-    if (!$node instanceof Node) {
-      $nid = \Drupal::routeMatch()->getRawParameter('node');
-      if (is_numeric($nid)) {
-        $node = Node::load($nid);
-      }
-    }
+    $route_match = \Drupal::routeMatch();
+    $node = $route_match->getParameter('node');
 
     if (!$node instanceof Node || $node->bundle() !== 'article') {
       return [];
@@ -69,7 +56,6 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
       return [];
     }
 
-    // Query Product Catalog
     $nids = $this->entityTypeManager->getStorage('node')->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'product_catalog')
@@ -88,10 +74,14 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
 
     foreach ($nodes as $product) {
       $title = $product->label();
-      //$url = $product->toUrl()->toString();
+
       $store = $product->hasField('field_product_store_name') && !$product->get('field_product_store_name')->isEmpty()
         ? $product->get('field_product_store_name')->value
         : 'N/A';
+
+      $link_url = $product->hasField('field_product_external_link') && !$product->get('field_product_external_link')->isEmpty()
+        ? $product->get('field_product_external_link')->uri
+        : $product->toUrl()->toString();
 
       $image_markup = '';
       if ($product->hasField('field_product_image') && !$product->get('field_product_image')->isEmpty()) {
@@ -102,37 +92,16 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
           '#uri' => $image_file->getFileUri(),
           '#alt' => $title,
         ];
-        $image_markup = \Drupal::service('renderer')->renderPlain($image_render_array);
+        $image_markup = $this->renderer->render($image_render_array);
       }
 
-      $link_url = $product->hasField('field_product_external_link') && !$product->get('field_product_external_link')->isEmpty()
-        ? $product->get('field_product_external_link')->uri
-        : $product->toUrl()->toString();
-
-      $image_render_array = [
-        '#theme' => 'image_style',
-        '#style_name' => 'medium',
-        '#uri' => $image_file->getFileUri(),
-        '#alt' => $title,
-      ];
-
-      $image_markup = $this->renderer->render($image_render_array);
-
-      $image_link = [
-        '#type' => 'link',
-        '#title' => [
-          '#markup' => $image_markup,
-        ],
-        '#url' => \Drupal\Core\Url::fromUri($link_url),
-        '#options' => ['attributes' => ['target' => '_blank']],
-      ];
-
-      $price = $product->hasField('field_product_price') && !$product->get('field_product_price')->isEmpty()
-        ? number_format($product->get('field_product_price')->value, 2)
-        : NULL;
-
       $items[] = [
-        'image' => $image_link,
+        'image' => [
+          '#type' => 'link',
+          '#title' => ['#markup' => $image_markup],
+          '#url' => \Drupal\Core\Url::fromUri($link_url),
+          '#options' => ['attributes' => ['target' => '_blank']],
+        ],
         'title' => [
           '#type' => 'link',
           '#title' => $title,
@@ -140,27 +109,25 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
           '#options' => ['attributes' => ['target' => '_blank']],
         ],
         'store' => ['#markup' => $store],
-        'price' => ['#markup' => $price ? 'RM' . $price : '']
       ];
-
     }
 
-    \Drupal::logger('image_tag_analysis')->notice('📦 Prepared slider items: @count', [
-      '@count' => count($items),
-    ]);
-
-    // Load settings from config
+    // Load settings
     $config = \Drupal::config('image_tag_analysis.slider');
-
     $settings = [
       'itemsPerView' => (int) $config->get('items_per_view') ?? 3,
       'effect' => $config->get('slider_effect') ?? 'slide',
       'breakpoints' => [
-        1024 => ['slidesPerView' => (int) $config->get('slides_desktop') ?? 3],
-        768 => ['slidesPerView' => (int) $config->get('slides_tablet') ?? 2],
         0 => ['slidesPerView' => (int) $config->get('slides_mobile') ?? 1],
+        768 => ['slidesPerView' => (int) $config->get('slides_tablet') ?? 2],
+        1024 => ['slidesPerView' => (int) $config->get('slides_desktop') ?? 3],
       ],
     ];
+
+    // 🔧 Log here
+    \Drupal::logger('image_tag_analysis')->notice('📦 Slider settings: <pre>@settings</pre>', [
+      '@settings' => print_r($settings, TRUE),
+    ]);
 
     return [
       '#theme' => 'matched_products_slider',
@@ -169,15 +136,19 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
         'library' => ['image_tag_analysis/slider'],
         'drupalSettings' => [
           'image_tag_analysis' => [
-            'slider' => $settings,
+            'matched_slider_config' => $settings,
           ],
         ],
       ],
       '#cache' => [
-        'tags' => ['node_list', 'taxonomy_term_list'],
+        'tags' => [
+          'node_list',
+          'taxonomy_term_list',
+          'config:image_tag_analysis.slider',
+        ],
         'contexts' => ['url.path'],
+        'max-age' => 0,
       ],
-      'debug_text' => ['#markup' => '✅ Block rendered!'],
     ];
   }
 }

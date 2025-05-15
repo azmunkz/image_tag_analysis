@@ -1,8 +1,10 @@
-(function (Drupal, once) {
+(function (Drupal, once, drupalSettings) {
   Drupal.behaviors.matchedProductsSlider = {
-    attach: function (context, settings) {
+    attach: function (context) {
       once('matched-products-slider', '.matched-products-swiper', context).forEach(function (swiperEl) {
-        const sliderSettings = settings.image_tag_analysis?.slider || {};
+        const sliderSettings = drupalSettings.image_tag_analysis?.matched_slider_config || {};
+
+        console.log('🧩 Loaded slider settings:', sliderSettings);
 
         new Swiper(swiperEl, {
           slidesPerView: sliderSettings.itemsPerView || 3,
@@ -17,4 +19,4 @@
       });
     }
   };
-})(Drupal, once);
+})(Drupal, once, drupalSettings);

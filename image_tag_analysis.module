@@ -20,20 +20,22 @@ function image_tag_analysis_page_attachments(array &$attachments) {
   $route_match = \Drupal::routeMatch();
   $node = $route_match->getParameter('node');
 
-  \Drupal::logger('image_tag_analysis')->notice('📡 Checking page attachments...');
+  if ($route_match->getRouteName() === 'entity.node.canonical' && $node instanceof \Drupal\node\NodeInterface) {
+    if ($node->bundle() === 'article') {
+      // ✅ Use service instead of static config
+      $config = \Drupal::service('config.factory')->get('image_tag_analysis.slider');
 
-  if (
-    $route_match->getRouteName() === 'entity.node.canonical' &&
-    $node instanceof NodeInterface &&
-    $node->bundle() === 'product_catalog'
-  ) {
-    $already_tagged = !$node->get('field_product_tags')->isEmpty();
-
-    $attachments['#attached']['library'][] = 'image_tag_analysis/image_tag_trigger';
-    $attachments['#attached']['drupalSettings']['nid'] = $node->id();
-    $attachments['#attached']['drupalSettings']['imageTagAnalysisAlreadyTagged'] = $already_tagged;
-
-    \Drupal::logger('image_tag_analysis')->notice('📡 JS triggered for node nid: @nid', ['@nid' => $node->id()]);
+      $attachments['#attached']['library'][] = 'image_tag_analysis/slider';
+      $attachments['#attached']['drupalSettings']['image_tag_analysis']['slider'] = [
+        'itemsPerView' => (int) $config->get('items_per_view'),
+        'effect' => $config->get('slider_effect'),
+        'breakpoints' => [
+          320 => ['slidesPerView' => (int) $config->get('slides_mobile')],
+          768 => ['slidesPerView' => (int) $config->get('slides_tablet')],
+          1024 => ['slidesPerView' => (int) $config->get('slides_desktop')],
+        ],
+      ];
+    }
   }
 }
 
