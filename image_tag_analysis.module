@@ -8,8 +8,19 @@ use Drupal\taxonomy\Entity\Term;
  * Implements hook_node_presave().
  */
 function image_tag_analysis_node_presave(NodeInterface $node) {
-  if ($node->bundle() === 'article') {
-    _image_tag_analysis_process_node($node, FALSE); // Match only
+  \Drupal::logger('image_tag_analysis')->notice('🔥 PRESAVE triggered for @bundle nid:@nid', [
+    '@bundle' => $node->bundle(),
+    '@nid' => $node->id(),
+  ]);
+
+  // Run tagging only on newly created nodes.
+  if ($node->isNew()) {
+    if ($node->bundle() === 'article') {
+      _image_tag_analysis_process_node($node, FALSE);
+    }
+    elseif ($node->bundle() === 'product_catalog') {
+      _image_tag_analysis_process_node($node, TRUE);
+    }
   }
 }
 
@@ -50,6 +61,9 @@ function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterfac
       '#type' => 'submit',
       '#value' => t('Re-analyze Image'),
       '#submit' => ['image_tag_analysis_reanalyze_submit'],
+      '#attributes' => [
+        'onclick' => "return confirm('Are you sure you want to re-analyze the image? This will overwrite the existing tags and description.');",
+      ],
       '#weight' => 99,
     ];
   }
@@ -58,6 +72,9 @@ function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterfac
       '#type' => 'submit',
       '#value' => t('Re-analyze Image'),
       '#submit' => ['image_tag_analysis_reanalyze_submit_article'],
+      '#attributes' => [
+        'onclick' => "return confirm('Are you sure you want to re-analyze the image? This will overwrite the existing tags and description.');",
+      ],
       '#weight' => 99,
     ];
   }
@@ -132,7 +149,10 @@ function _image_tag_analysis_process_node(NodeInterface $node, $create_missing =
   }
 
   $image_data = base64_encode($image_contents);
-  $prompt = \Drupal::config('image_tag_analysis.settings')->get('ai_prompt');
+  $prompt_config = \Drupal::service('config.factory')->get('image_tag_analysis.settings');
+  $prompt = $node->bundle() === 'article'
+    ? $prompt_config->get('article_prompt')
+    : $prompt_config->get('ai_prompt');
   $response = _image_tag_analysis_call_ai($image_data, $prompt);
 
   \Drupal::logger('image_tag_analysis')->notice('🧪 AI raw response: @res', ['@res' => $response]);
@@ -146,8 +166,8 @@ function _image_tag_analysis_process_node(NodeInterface $node, $create_missing =
     if (!empty($data['description']) && $node->hasField('field_img_tag_analysis_desc')) {
       $node->set('field_img_tag_analysis_desc', $data['description']);
     }
-    if (!empty($data['items']) && $node->hasField($target_field)) {
-      $term_ids = _image_tag_analysis_match_product_tags($data['items'], $create_missing);
+    if (!empty($data['tags']) && $node->hasField($target_field)) {
+      $term_ids = _image_tag_analysis_match_tags_list($data['tags'], $create_missing);
       $node->set($target_field, $term_ids);
     }
   }
@@ -173,8 +193,10 @@ function _image_tag_analysis_call_ai($input_data, $prompt, $is_text_only = FALSE
       ],
       'json' => [
         'model' => 'gpt-4o',
+        'temperature' => 0.2,
+        'top_p' => 1.0,
+        'max_tokens' => 4096,
         'messages' => [['role' => 'user', 'content' => $message_content]],
-        'max_tokens' => 2048,
       ],
     ]);
 
@@ -191,12 +213,8 @@ function _image_tag_analysis_match_product_tags(array $items, $create_missing = 
   $names = [];
 
   foreach ($items as $item) {
-    if (!empty($item['Product Name']) && stripos($item['Product Name'], 'Sponsor') === false) {
-      $names[] = trim($item['Product Name']);
-    }
-    if (!empty($item['Brand'])) $names[] = trim($item['Brand']);
-    if (!empty($item['Category']) && stripos($item['Category'], 'Sponsor') === false) {
-      $names[] = trim($item['Category']);
+    if (!empty($item['tag']) && stripos($item['tag'], 'Sponsor') === false) {
+      $names[] = trim($item['tag']);
     }
   }
 
@@ -207,6 +225,34 @@ function _image_tag_analysis_match_product_tags(array $items, $create_missing = 
       'vid' => 'product_tags',
       'name' => $name,
     ]);
+    $term = reset($terms);
+
+    if (!$term && $create_missing) {
+      $term = Term::create(['vid' => 'product_tags', 'name' => $name]);
+      $term->save();
+    }
+
+    if ($term) {
+      $term_ids[] = ['target_id' => $term->id()];
+    }
+  }
+
+  return $term_ids;
+}
+
+function _image_tag_analysis_match_tags_list(array $tags, $create_missing = TRUE) {
+  $term_ids = [];
+
+  foreach ($tags as $name) {
+    $name = trim($name);
+    if ($name === '' || stripos($name, 'Sponsor') !== FALSE) continue;
+
+    $terms = \Drupal::entityTypeManager()
+      ->getStorage('taxonomy_term')
+      ->loadByProperties([
+        'vid' => 'product_tags',
+        'name' => $name,
+      ]);
     $term = reset($terms);
 
     if (!$term && $create_missing) {
