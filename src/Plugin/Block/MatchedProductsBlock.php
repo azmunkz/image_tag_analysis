@@ -142,7 +142,7 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
       ],
       '#cache' => [
         'tags' => [
-          'node_list',
+          'node:' . $node->id(),
           'taxonomy_term_list',
           'config:image_tag_analysis.slider',
         ],
