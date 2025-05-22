@@ -4,3 +4,10 @@ services:
     arguments: ['@config.factory']
     tags:
       - { name: form }
+
+  image_tag_analysis.openai_assistant:
+    class: Drupal\image_tag_analysis\Service\OpenAiAssistantService
+    arguments:
+      - '@http_client'
+      - '@logger.factory'
+      - '@key.repository'

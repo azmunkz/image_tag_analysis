@@ -17,6 +17,28 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state) {
     $config = $this->config('image_tag_analysis.settings');
+    $form['cdn_domain'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('CDN Domain'),
+      '#default_value' => $config->get('cdn_domain'),
+      '#description' => $this->t('Enter the base URL of your CDN, e.g., https://d19352o69xmbxa.cloudfront.net'),
+    ];
+
+    $form['assistant_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('OpenAI Assistant ID'),
+      '#default_value' => $config->get('assistant_id'),
+      '#description' => $this->t('Enter the Assistant ID from your OpenAI dashboard (e.g., asst_abc123...).'),
+      '#required' => TRUE,
+    ];
+
+    $form['article_assistant_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('OpenAI Assistant ID for Article Tagging'),
+      '#default_value' => $config->get('article_assistant_id'),
+      '#description' => $this->t('Paste your Assistant ID for article tagging (e.g., asst_abc123...).'),
+      '#required' => TRUE,
+    ];
 
     $form['ai_prompt'] = [
       '#type' => 'textarea',
@@ -34,14 +56,6 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
       '#rows' => 10,
     ];
 
-
-    $form['cdn_domain'] = [
-      '#type' => 'textfield',
-      '#title' => $this->t('CDN Domain'),
-      '#default_value' => $config->get('cdn_domain'),
-      '#description' => $this->t('Enter the base URL of your CDN, e.g., https://d19352o69xmbxa.cloudfront.net'),
-    ];
-
     return parent::buildForm($form, $form_state);
   }
 
@@ -50,6 +64,8 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
       ->set('ai_prompt', $form_state->getValue('ai_prompt'))
       ->set('article_prompt', $form_state->getValue('article_prompt'))
       ->set('cdn_domain', $form_state->getValue('cdn_domain'))
+      ->set('assistant_id', $form_state->getValue('assistant_id'))
+      ->set('article_assistant_id', $form_state->getValue('article_assistant_id'))
       ->save();
 
     parent::submitForm($form, $form_state);

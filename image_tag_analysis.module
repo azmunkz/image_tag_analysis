@@ -50,10 +50,8 @@ function image_tag_analysis_page_attachments(array &$attachments) {
   }
 }
 
-/**
- * Alter node form to add Re-analyze button.
- */
-function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterface $form_state, $form_id) {
+function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterface $form_state, $form_id)
+{
   $node = $form_state->getFormObject()->getEntity();
 
   if ($node->bundle() === 'product_catalog') {
@@ -66,8 +64,7 @@ function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterfac
       ],
       '#weight' => 99,
     ];
-  }
-  elseif ($node->bundle() === 'article') {
+  } elseif ($node->bundle() === 'article') {
     $form['reanalyze'] = [
       '#type' => 'submit',
       '#value' => t('Re-analyze Image'),
@@ -77,17 +74,56 @@ function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterfac
       ],
       '#weight' => 99,
     ];
+
+    // Always show the fieldset even if no tags matched
+    $form['ai_generated_tags'] = [
+      '#type' => 'fieldset',
+      '#title' => t('AI Generated Tags'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+      '#weight' => 98,
+    ];
+
+    // Primary source: matched product tags (if available)
+    $tags = [];
+    // ✅ Always prefer AI tag list
+    $ai_tags = \Drupal::state()->get('image_tag_analysis.last_tags', []);
+    foreach ($ai_tags as $tag) {
+      $tags[] = Html::escape($tag);
+    }
+
+    // If no matched tags, fallback to raw AI tag list stored in tempstore (or logging)
+    if (empty($tags) && \Drupal::state()->get('image_tag_analysis.last_tags')) {
+      $ai_tags = \Drupal::state()->get('image_tag_analysis.last_tags', []);
+      foreach ($ai_tags as $tag) {
+        $tags[] = Html::escape($tag);
+      }
+    }
+
+    // Show message if still empty
+    if (empty($tags)) {
+      $form['ai_generated_tags']['tag_list'] = [
+        '#markup' => '<div><em>No tags were matched or generated.</em></div>',
+      ];
+    } else {
+      $form['ai_generated_tags']['tag_list'] = [
+        '#markup' => '<div>' . implode(', ', $tags) . '</div>',
+      ];
+    }
   }
 }
 
-function image_tag_analysis_reanalyze_submit(array &$form, FormStateInterface $form_state) {
+
+function image_tag_analysis_reanalyze_submit(array &$form, FormStateInterface $form_state)
+{
   $node = $form_state->getFormObject()->getEntity();
   _image_tag_analysis_process_node($node, TRUE); // create tag
   $node->save();
   \Drupal::messenger()->addStatus(t('Image has been re-analyzed.'));
 }
 
-function image_tag_analysis_reanalyze_submit_article(array &$form, FormStateInterface $form_state) {
+function image_tag_analysis_reanalyze_submit_article(array &$form, FormStateInterface $form_state)
+{
   $node = $form_state->getFormObject()->getEntity();
   _image_tag_analysis_process_node($node, FALSE); // match only
   $node->save();
@@ -97,7 +133,8 @@ function image_tag_analysis_reanalyze_submit_article(array &$form, FormStateInte
 /**
  * Implements hook_theme().
  */
-function image_tag_analysis_theme($existing, $type, $theme, $path) {
+function image_tag_analysis_theme($existing, $type, $theme, $path)
+{
   return [
     'matched_products_slider' => [
       'variables' => ['items' => NULL],
@@ -106,15 +143,29 @@ function image_tag_analysis_theme($existing, $type, $theme, $path) {
   ];
 }
 
-function _image_tag_analysis_process_node(NodeInterface $node, $create_missing = TRUE) {
-  \Drupal::logger('image_tag_analysis')->notice('🔍 Tagging START for @type nid:@nid (create_missing: @mode)', [
+function _image_tag_analysis_process_node(NodeInterface $node, $create_missing = TRUE)
+{
+  \Drupal::logger('image_tag_analysis')->notice('🔍 Tagging START for @type uuid:@uuid (create_missing: @mode)', [
     '@type' => $node->bundle(),
-    '@nid' => $node->id(),
+    '@uuid' => $node->uuid(),
     '@mode' => $create_missing ? 'TRUE' : 'FALSE'
   ]);
 
+  $service = \Drupal::service('image_tag_analysis.openai_assistant');
+  $config = \Drupal::config('image_tag_analysis.settings');
+
+  if ($node->bundle() === 'article') {
+    $service->setAssistantId($config->get('article_assistant_id'));
+  } else {
+    $service->setAssistantId($config->get('assistant_id'));
+  }
+
   $field_name = $node->bundle() === 'article' ? 'field_image' : 'field_product_image';
   $target_field = $node->bundle() === 'article' ? 'field_image_product_tags' : 'field_product_tags';
+  $desc_field = $node->bundle() === 'article'
+    ? 'field_image_tag_analysis_desc'
+    : 'field_img_tag_analysis_desc';
+
 
   if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
     return;
@@ -136,7 +187,7 @@ function _image_tag_analysis_process_node(NodeInterface $node, $create_missing =
       $path = $root_folder . '/' . $path;
     }
     $image_url = rtrim($cdn_domain, '/') . '/' . ltrim($path, '/');
-    $image_contents = @file_get_contents($image_url);
+    //$image_contents = @file_get_contents($image_url);
   } else {
     $real_path = $file_system->realpath($uri);
     if (!empty($real_path)) {
@@ -144,27 +195,37 @@ function _image_tag_analysis_process_node(NodeInterface $node, $create_missing =
     }
   }
 
-  if (empty($image_contents)) {
+  if (empty($image_url)) {
+    \Drupal::logger('image_tag_analysis')->warning('⚠ No image URL found for tagging.');
     return;
   }
 
-  $image_data = base64_encode($image_contents);
+
+//  $image_data = base64_encode($image_contents);
+  $image_data = $image_contents;
   $prompt_config = \Drupal::service('config.factory')->get('image_tag_analysis.settings');
   $prompt = $node->bundle() === 'article'
     ? $prompt_config->get('article_prompt')
     : $prompt_config->get('ai_prompt');
-  $response = _image_tag_analysis_call_ai($image_data, $prompt);
+
+//  $response = _image_tag_analysis_call_ai($image_data, $prompt);
+  // 🔄 Call Assistants API instead of Chat Completion
+  $response = _image_tag_analysis_call_assistant_api($image_url);
+//  $data = _image_tag_analysis_call_assistant_api($image_url);
+  \Drupal::logger('image_tag_analysis')->notice('🎯 Assistant response: <pre>@res</pre>', ['@res' => print_r($response, TRUE)]);
+
 
   \Drupal::logger('image_tag_analysis')->notice('🧪 AI raw response: @res', ['@res' => $response]);
 
   if (!empty($response)) {
-    if (preg_match('/^```json\s*(.*?)```$/s', $response, $matches)) {
-      $response = trim($matches[1]);
+    $data = is_array($response) ? $response : json_decode($response, TRUE);
+
+    if (!empty($data['tags'])) {
+      \Drupal::state()->set('image_tag_analysis.last_tags', $data['tags']);
     }
 
-    $data = json_decode($response, TRUE);
-    if (!empty($data['description']) && $node->hasField('field_img_tag_analysis_desc')) {
-      $node->set('field_img_tag_analysis_desc', $data['description']);
+    if (!empty($data['description']) && $node->hasField($desc_field)) {
+      $node->set($desc_field, $data['description']);
     }
     if (!empty($data['tags']) && $node->hasField($target_field)) {
       $term_ids = _image_tag_analysis_match_tags_list($data['tags'], $create_missing);
@@ -173,7 +234,8 @@ function _image_tag_analysis_process_node(NodeInterface $node, $create_missing =
   }
 }
 
-function _image_tag_analysis_call_ai($input_data, $prompt, $is_text_only = FALSE) {
+function _image_tag_analysis_call_ai($input_data, $prompt, $is_text_only = FALSE)
+{
   try {
     $key_service = \Drupal::service('key.repository');
     $api_key = $key_service->getKey('openai_key')->getKeyValue();
@@ -208,7 +270,8 @@ function _image_tag_analysis_call_ai($input_data, $prompt, $is_text_only = FALSE
   }
 }
 
-function _image_tag_analysis_match_product_tags(array $items, $create_missing = TRUE) {
+function _image_tag_analysis_match_product_tags(array $items, $create_missing = TRUE)
+{
   $term_ids = [];
   $names = [];
 
@@ -240,7 +303,26 @@ function _image_tag_analysis_match_product_tags(array $items, $create_missing = 
   return $term_ids;
 }
 
-function _image_tag_analysis_match_tags_list(array $tags, $create_missing = TRUE) {
+function _image_tag_analysis_call_assistant_api(string $image_url): ?array
+{
+  try {
+    $service = \Drupal::service('image_tag_analysis.openai_assistant');
+
+    $thread_id = $service->createThread();
+    $service->addMessage($thread_id, $image_url);
+    $run_id = $service->runAssistant($thread_id);
+    $result = $service->pollUntilComplete($thread_id, $run_id);
+
+    return $result;
+  } catch (\Exception $e) {
+    \Drupal::logger('image_tag_analysis')->error('Assistant API error: @msg', ['@msg' => $e->getMessage()]);
+    return NULL;
+  }
+}
+
+
+function _image_tag_analysis_match_tags_list(array $tags, $create_missing = TRUE)
+{
   $term_ids = [];
 
   foreach ($tags as $name) {
@@ -264,6 +346,7 @@ function _image_tag_analysis_match_tags_list(array $tags, $create_missing = TRUE
       $term_ids[] = ['target_id' => $term->id()];
     }
   }
+  \Drupal::logger('image_tag_analysis')->notice('🎯 Tags being processed: <pre>@json</pre>', ['@json' => print_r($tags, TRUE)]);
 
   return $term_ids;
 }
