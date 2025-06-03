@@ -40,21 +40,30 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
       '#required' => TRUE,
     ];
 
-    $form['ai_prompt'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('AI Prompt Product Image Analysis'),
-      '#default_value' => $config->get('ai_prompt'),
-      '#description' => $this->t('Custom prompt to send to the AI image analysis model.'),
-      '#rows' => 15,
+    $form['max_tags'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Maximum number of tags'),
+      '#default_value' => $config->get('max_tags') ?? 5,
+      '#min' => 1,
+      '#max' => 50,
+      '#description' => $this->t('Set the maximum number of tags to generate per image.'),
     ];
 
-    $form['article_prompt'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('AI Prompt for Article'),
-      '#default_value' => $config->get('article_prompt'),
-      '#description' => $this->t('Prompt used when analyzing article content to extract relevant product-related tags.'),
-      '#rows' => 10,
-    ];
+//    $form['ai_prompt'] = [
+//      '#type' => 'textarea',
+//      '#title' => $this->t('AI Prompt Product Image Analysis'),
+//      '#default_value' => $config->get('ai_prompt'),
+//      '#description' => $this->t('Custom prompt to send to the AI image analysis model.'),
+//      '#rows' => 15,
+//    ];
+//
+//    $form['article_prompt'] = [
+//      '#type' => 'textarea',
+//      '#title' => $this->t('AI Prompt for Article'),
+//      '#default_value' => $config->get('article_prompt'),
+//      '#description' => $this->t('Prompt used when analyzing article content to extract relevant product-related tags.'),
+//      '#rows' => 10,
+//    ];
 
     return parent::buildForm($form, $form_state);
   }
@@ -66,6 +75,7 @@ class ImageTagAnalysisSettingsForm extends ConfigFormBase {
       ->set('cdn_domain', $form_state->getValue('cdn_domain'))
       ->set('assistant_id', $form_state->getValue('assistant_id'))
       ->set('article_assistant_id', $form_state->getValue('article_assistant_id'))
+      ->set('max_tags', $form_state->getValue('max_tags'))
       ->save();
 
     parent::submitForm($form, $form_state);

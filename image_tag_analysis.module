@@ -222,7 +222,11 @@ function _image_tag_analysis_process_node(NodeInterface $node, $create_missing =
     $data = is_array($response) ? $response : json_decode($response, TRUE);
 
     if (!empty($data['tags'])) {
-      \Drupal::state()->set('image_tag_analysis.last_tags', $data['tags']);
+      $config = \Drupal::config('image_tag_analysis.settings');
+      $max_tags = (int) $config->get('max_tags') ?: 5;
+      $tags = array_slice($data['tags'], 0, $max_tags);
+
+      \Drupal::state()->set('image_tag_analysis.last_tags', $tags);
     }
 
     if (!empty($data['description']) && $node->hasField($desc_field)) {
@@ -321,33 +325,45 @@ function _image_tag_analysis_call_assistant_api(string $image_url): ?array
   }
 }
 
-
-function _image_tag_analysis_match_tags_list(array $tags, $create_missing = TRUE)
-{
+function _image_tag_analysis_match_tags_list(array $tags, $create_missing = TRUE) {
   $term_ids = [];
 
   foreach ($tags as $name) {
     $name = trim($name);
-    if ($name === '' || stripos($name, 'Sponsor') !== FALSE) continue;
 
+    // Skip empty tags or those that contain the word "Sponsor".
+    if ($name === '' || stripos($name, 'Sponsor') !== FALSE) {
+      continue;
+    }
+
+    // Try to load existing term by name within 'product_tags' vocabulary.
     $terms = \Drupal::entityTypeManager()
       ->getStorage('taxonomy_term')
       ->loadByProperties([
         'vid' => 'product_tags',
         'name' => $name,
       ]);
+
     $term = reset($terms);
 
+    // Create term if not exists and allowed.
     if (!$term && $create_missing) {
-      $term = Term::create(['vid' => 'product_tags', 'name' => $name]);
+      $term = Term::create([
+        'vid' => 'product_tags',
+        'name' => $name,
+      ]);
       $term->save();
     }
 
+    // If valid term found or created, add to list.
     if ($term) {
       $term_ids[] = ['target_id' => $term->id()];
     }
   }
-  \Drupal::logger('image_tag_analysis')->notice('🎯 Tags being processed: <pre>@json</pre>', ['@json' => print_r($tags, TRUE)]);
+
+  \Drupal::logger('image_tag_analysis')->notice('🎯 Tags being processed: <pre>@json</pre>', [
+    '@json' => print_r($tags, TRUE),
+  ]);
 
   return $term_ids;
 }
