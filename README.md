@@ -1,20 +1,38 @@
 # Image Tag Analysis Module
 
-**Version:** v1.4
+**Version:** 2.0.2
+**Status:** Stable
+**Requires:** Drupal 10.x, OpenAI API Key, Internet access (for live tagging via OpenAI)
+
+---
 
 This Drupal module uses AI to analyze uploaded images in content nodes (like Product or Article) and auto-tag them based on the visual content. It also provides slider-based matched product suggestions and AJAX-based re-analyze support.
 
 ---
 
-## ✅ Features
+## 📌 Overview
 
-- Auto-analyze uploaded images using OpenAI
-- Extract product tags, brands, categories
-- Create or match tags automatically
-- Product slider block with configurable Swiper.js settings
-- AJAX-based reanalyze button (no page reload)
-- Settings forms for prompt, slider behavior, and CDN fallback
-- Built-in fallback if CDN or S3 is not configured
+The **Image Tag Analysis** module provides automatic image-based tagging for content nodes in Drupal, powered by **OpenAI Assistant API**.
+
+It can:
+- Analyze uploaded images on nodes (e.g. `product_catalog`, `article`)
+- Generate descriptive product tags using AI
+- Automatically match tags to existing taxonomy terms (or create them optionally)
+- Display product suggestions based on tag relevance
+- Supports both local and S3-hosted image sources
+- Offers fallback handling and tag filtering options
+
+---
+
+## 🚀 New in v2.0.2
+
+✅ Migrated to OpenAI **Assistants API**
+✅ Handles **local + S3 image sources**
+✅ **Configurable tag limit**
+✅ Filters out irrelevant tags (e.g., containing "Sponsor")
+✅ Supports re-analysis via form button or AJAX
+✅ Logs tag processing and assistant calls
+✅ Admin UI (WIP): tag limit, assistant ID, prompt refinement
 
 ---
 
@@ -53,6 +71,12 @@ The module will automatically create this content type. Ensure these field confi
 | Image                       | `field_image`            | Image              | Required                                           |
 | Product Tags (Matched)      | `field_image_product_tags` | Term reference  | Unlimited. Vocabulary: `Product Tags`             |
 
+### 3. Configuration
+
+You must configure:
+- `openai_key`: via Drupal Key module
+- `assistant_id`: hardcoded in `OpenAiAssistantService.php` (or optionally via admin config)
+- Image field machine name: defaults to `field_product_image`
 ---
 
 ## 🧠 Suggested Prompt
@@ -90,48 +114,6 @@ Return your result in clean raw JSON, no markdown, no comments. Format strictly 
       "Category": "Sponsorship Logo",
       "Features": "White Daikin logo on left sleeve",
       "Potential Value": "Official sponsor logo"
-    }
-  ]
-}
-```
-
-### Article Image Prompt
-```
-You are an expert AI product image analyst.
-
-Your task is to analyze the uploaded product image and return detailed metadata.
-
-Steps:
-1. Identify what type of product is shown (e.g., sneakers, football jersey, backpack, smartwatch, etc.).
-2. Detect brand name, model (if known), product category, and visible design features.
-3. Identify any sponsor logos, visible text, badges, patterns, or signature design elements.
-4. Ensure your output is relevant, specific, and avoids general or vague terms.
-
-Strict Rules:
-- Do NOT use vague terms like "apparel", "clothing", or "unknown".
-- Only include products or features that are clearly visible in the image.
-- Avoid repetition. Each item must be unique.
-- Be concise, but specific.
-- Output in clean raw JSON (no markdown, no explanation).
-
-Output format:
-
-{
-  "description": "Detailed description of what's seen in the image...",
-  "items": [
-    {
-      "Product Name": "Nike Phantom GX 2 Elite",
-      "Brand": "Nike",
-      "Category": "Football Boots",
-      "Features": "White and blue synthetic upper, asymmetric lacing, mesh tongue, bold Swoosh logo on side",
-      "Potential Value": "Top-tier pro football boot"
-    },
-    {
-      "Product Name": "Nike Swoosh Logo",
-      "Brand": "Nike",
-      "Category": "Logo",
-      "Features": "Black Nike Swoosh on lateral side",
-      "Potential Value": "Brand identity feature"
     }
   ]
 }
@@ -179,8 +161,6 @@ To place the matched product slider block on article pages:
 4. Search for: `Matched Products Slider`
 5. Place and configure visibility as needed
 
-
-
 ---
 
 ## 📦 Composer Installation (Dependencies)
@@ -201,4 +181,71 @@ composer require 'drupal/s3fs:^3.7'
 > - `taxonomy`
 > - `node`
 > - `block`
+---
 
+## 📁 File Structure
+```bash
+.
+├── CHANGELOG.md
+├── INSTALL.md
+├── README.md
+├── TESTING.md
+├── composer.json
+├── config
+│   ├── install
+│   │   └── image_tag_analysis.settings.yml
+│   └── schema
+│       └── image_tag_analysis.schema.yml
+├── css
+│   └── matched-products-slider.css
+├── image_tag_analysis.info.yml
+├── image_tag_analysis.install
+├── image_tag_analysis.libraries.yml
+├── image_tag_analysis.links.menu.yml
+├── image_tag_analysis.module
+├── image_tag_analysis.routing.yml
+├── image_tag_analysis.services.yml
+├── js
+│   ├── image_tag_trigger.js
+│   └── matched-products-slider.js
+├── src
+│   ├── Controller
+│   │   └── ImageTaggingController.php
+│   ├── Form
+│   │   ├── ImageTagAnalysisSettingsForm.php
+│   │   └── SliderSettingsForm.php
+│   ├── Plugin
+│   │   └── Block
+│   │       └── MatchedProductsBlock.php
+│   └── Service
+│       └── OpenAiAssistantService.php
+└── templates
+    └── matched-products-slider.html.twig
+```
+
+---
+
+
+## ❗Troubleshooting
+
+- 🔴 *"No assistant found with ID..."*
+  → Check `assistant_id` in `OpenAiAssistantService.php`
+
+- 🔴 *"Invalid image URL"*
+  → Make sure the image is accessible via public URL (e.g., not localhost)
+
+- 🔴 *"Run ID is null"*
+  → Assistant not initialized correctly; check message creation success
+
+---
+
+## 🙋 Support
+
+Need help? Contact module maintainer or open an issue in your internal GitLab/GitHub project.
+
+---
+
+## 📝 License
+
+This module is released under the **GNU General Public License v2.0**.
+See `/LICENSE.txt` in your Drupal root.
