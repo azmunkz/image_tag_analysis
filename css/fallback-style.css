@@ -1,0 +1,40 @@
+.fallback-product-list .form-type-checkbox {
+  display: inline-block;
+  margin: 10px;
+  text-align: center;
+  width: 150px;
+}
+
+.fallback-product-list .form-type-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.fallback-product-list .form-type-checkbox label {
+  display: block;
+  cursor: pointer;
+  border: 2px solid transparent;
+  padding: 5px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.fallback-product-list .form-type-checkbox label:hover,
+.fallback-product-list .form-type-checkbox input[type="checkbox"]:checked + label {
+  border-color: #28a745;
+  background: #f0fff0;
+}
+
+.fallback-product-list .form-type-checkbox img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.fallback-product-list .form-type-checkbox span {
+  display: block;
+  font-size: 14px;
+  font-weight: bold;
+}

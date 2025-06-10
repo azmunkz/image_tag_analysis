@@ -21,3 +21,11 @@ image_tag_analysis.slider_settings:
   route_name: image_tag_analysis.slider_settings
   parent: image_tag_analysis.settings_group
   weight: 2
+
+# Fallback Products Selection
+image_tag_analysis.fallback_products:
+  title: 'Fallback Products Selection'
+  description: 'Select fallback products when no matching tags found.'
+  route_name: image_tag_analysis.fallback_products
+  parent: image_tag_analysis.settings_group
+  weight: 3

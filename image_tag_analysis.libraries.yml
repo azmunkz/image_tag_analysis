@@ -18,3 +18,26 @@ image_tag_trigger:
     - core/jquery
     - core/drupalSettings
 
+fallback_style:
+  version: 1.x
+  css:
+    theme:
+      css/fallback-style.css:{}
+  js:
+    js/fallback-style.js: {}
+  dependencies:
+    - core/jquery
+    - core/drupalSettings
+
+fallback_autocomplete_preview:
+  version: 1.x
+  js:
+    js/fallback_autocomplete_preview.js: {}
+  css:
+    theme:
+      css/fallback_autocomplete_preview.css: {}
+  dependencies:
+    - core/jquery
+    - core/drupal
+    - core/drupalSettings
+    - core/once

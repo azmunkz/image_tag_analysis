@@ -1,0 +1,34 @@
+#fallback-preview-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.fallback-card {
+  display: inline-block;
+  margin: 10px;
+  text-align: center;
+  width: 140px;
+  border: 1px solid #ddd;
+  padding: 8px;
+  border-radius: 4px;
+  background: #f9f9f9;
+  position: relative;
+}
+.fallback-thumb {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #ccc;
+}
+.fallback-title {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.fallback-remove-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin-bottom: 8px;
+}

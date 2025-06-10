@@ -14,12 +14,6 @@ image_tag_analysis.slider_settings:
   requirements:
     _permission: 'administer site configuration'
 
-######################################################
-#URL: /image-tag-analysis/run-tagging/{nid}
-#Controller: ImageTaggingController::runTagging
-#Access: All user tha can access content (chnage to Admin to limit access)
-#Dynamic Parameter: {nid} = ID node product_catalog
-#######################################################
 image_tag_analysis.run_tagging:
   path: '/image-tag-analysis/run-tagging/{nid}'
   defaults:
@@ -30,3 +24,19 @@ image_tag_analysis.run_tagging:
     nid: '\d+'
   options:
     _access_mode: 'ANY'
+
+image_tag_analysis.fallback_products:
+  path: '/image-tag-analysis/fallback-products'
+  defaults:
+    _form: '\Drupal\image_tag_analysis\Form\FallbackProductSelectionForm'
+    _title: 'Fallback Product Selection'
+  requirements:
+    _permission: 'administer site configuration'
+
+image_tag_analysis.fallback_preview:
+  path: '/image-tag-analysis/fallback-preview/{nid}'
+  defaults:
+    _controller: '\Drupal\image_tag_analysis\Controller\FallbackPreviewController::preview'
+  requirements:
+    _permission: 'access content'
+    nid: \d+
