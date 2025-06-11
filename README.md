@@ -1,12 +1,12 @@
 # Image Tag Analysis Module
 
-**Version:** 2.0.2
-**Status:** Stable
-**Requires:** Drupal 10.x, OpenAI API Key, Internet access (for live tagging via OpenAI)
+**Version:** 2.1.1\
+**Status:** Stable\
+**Requires:** Drupal 10.x/11.x, OpenAI API Key, Internet access (for live tagging via OpenAI)
 
 ---
 
-This Drupal module uses AI to analyze uploaded images in content nodes (like Product or Article) and auto-tag them based on the visual content. It also provides slider-based matched product suggestions and AJAX-based re-analyze support.
+This Drupal module uses AI to analyze uploaded images in content nodes (like Product or Article) and auto-tag them based on the visual content. It also provides slider-based matched product suggestions with fallback product support and AJAX-based re-analyze capability.
 
 ---
 
@@ -18,21 +18,22 @@ It can:
 - Analyze uploaded images on nodes (e.g. `product_catalog`, `article`)
 - Generate descriptive product tags using AI
 - Automatically match tags to existing taxonomy terms (or create them optionally)
-- Display product suggestions based on tag relevance
+- Display product suggestions based on tag relevance or fallback products
 - Supports both local and S3-hosted image sources
 - Offers fallback handling and tag filtering options
 
 ---
 
-## 🚀 New in v2.0.2
+## 🚀 New in v2.1.1
 
-✅ Migrated to OpenAI **Assistants API**
-✅ Handles **local + S3 image sources**
-✅ **Configurable tag limit**
-✅ Filters out irrelevant tags (e.g., containing "Sponsor")
-✅ Supports re-analysis via form button or AJAX
-✅ Logs tag processing and assistant calls
-✅ Admin UI (WIP): tag limit, assistant ID, prompt refinement
+- Migrated to OpenAI **Assistants API**
+- Handles **local + S3 image sources**
+- **Configurable tag limit**
+- Filters out irrelevant tags (e.g., containing "Sponsor")
+- Supports re-analysis via form button or AJAX
+- Automaticallyt renders fallback products if no matched tags found
+- Logs tag processing and assistant calls
+- Admin UI (WIP): tag limit, assistant ID, prompt refinement
 
 ---
 
@@ -128,6 +129,7 @@ Return your result in clean raw JSON, no markdown, no comments. Format strictly 
 - Tag `product_catalog` nodes first to ensure accurate matching in `article` nodes
 - Use Re-analyze if tagging result looks incomplete or outdated
 - Enable CDN only if public access to image is required
+- Ensure fallback products are configured in module settings
 
 ---
 
@@ -153,13 +155,23 @@ Ready to tag your content like a pro 🧠🔥
 
 ## 🧱 Displaying the Product Slider
 
-To place the matched product slider block on article pages:
+To display matched or fallback product suggestion on article pages:
 
 1. Go to: `Structure` → `Block Layout`
 2. Find the **Content** region (or your preferred region)
 3. Click **Place block**
 4. Search for: `Matched Products Slider`
 5. Place and configure visibility as needed
+
+---
+
+## 🧩 How Fallback Works
+
+If an `article` node has no matching `product_catalog` based on image tags:
+
+- The module automatically displays a fallback slider
+- Fallback products are configurable in the admin settings
+- Both matched and fallback logic are handled by `MatchedProductsBlock.php`
 
 ---
 
