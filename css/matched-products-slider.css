@@ -25,13 +25,7 @@
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 0;
-  padding: 0 10px 10px;
   /*text-align: center;*/
-}
-
-
-.product-card:hover {
-  transform: translateY(-5px);
 }
 
 /*.product-image img {*/
@@ -44,9 +38,26 @@
 .product-title {
   font-weight: bold;
   margin-bottom: 5px;
+  line-height: 1.1rem;
 }
 
 .product-store {
   font-size: 0.85em;
   color: #666;
+}
+
+.product-card-meta {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 10px;
+}
+
+.product-card-meta .product-title a{
+  font-size: 1rem;
+  text-decoration: none;
+  font-weight: 500;
+}
+.product-card-meta .product-title a:hover {
+  text-decoration: dotted;
 }

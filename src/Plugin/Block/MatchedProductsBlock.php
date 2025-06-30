@@ -39,119 +39,6 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
     );
   }
 
-//  public function build() {
-//    $route_match = \Drupal::routeMatch();
-//    $node = $route_match->getParameter('node');
-//
-//    if (!$node instanceof Node || $node->bundle() !== 'article') {
-//      return [];
-//    }
-//
-//    if (!$node->hasField('field_image_product_tags') || $node->get('field_image_product_tags')->isEmpty()) {
-//      return [];
-//    }
-//
-//    $term_ids = array_column($node->get('field_image_product_tags')->getValue(), 'target_id');
-//    if (empty($term_ids)) {
-//      return [];
-//    }
-//
-//    $nids = $this->entityTypeManager->getStorage('node')->getQuery()
-//      ->accessCheck(TRUE)
-//      ->condition('type', 'product_catalog')
-//      ->condition('status', 1)
-//      ->condition('field_product_tags.target_id', $term_ids, 'IN')
-//      ->range(0, 10)
-//      ->sort('created', 'DESC')
-//      ->execute();
-//
-//    if (empty($nids)) {
-//      return [];
-//    }
-//
-//    $nodes = $this->entityTypeManager->getStorage('node')->loadMultiple($nids);
-//    $items = [];
-//
-//    foreach ($nodes as $product) {
-//      $title = $product->label();
-//
-//      $store = $product->hasField('field_product_store_name') && !$product->get('field_product_store_name')->isEmpty()
-//        ? $product->get('field_product_store_name')->value
-//        : 'N/A';
-//
-//      $link_url = $product->hasField('field_product_external_link') && !$product->get('field_product_external_link')->isEmpty()
-//        ? $product->get('field_product_external_link')->uri
-//        : $product->toUrl()->toString();
-//
-//      $image_markup = '';
-//      if ($product->hasField('field_product_image') && !$product->get('field_product_image')->isEmpty()) {
-//        $image_file = $product->get('field_product_image')->entity;
-//        $image_render_array = [
-//          '#theme' => 'image_style',
-//          '#style_name' => 'medium',
-//          '#uri' => $image_file->getFileUri(),
-//          '#alt' => $title,
-//        ];
-//        $image_markup = $this->renderer->render($image_render_array);
-//      }
-//
-//      $items[] = [
-//        'image' => [
-//          '#type' => 'link',
-//          '#title' => ['#markup' => $image_markup],
-//          '#url' => \Drupal\Core\Url::fromUri($link_url),
-//          '#options' => ['attributes' => ['target' => '_blank']],
-//        ],
-//        'title' => [
-//          '#type' => 'link',
-//          '#title' => $title,
-//          '#url' => \Drupal\Core\Url::fromUri($link_url),
-//          '#options' => ['attributes' => ['target' => '_blank']],
-//        ],
-//        'store' => ['#markup' => $store],
-//      ];
-//    }
-//
-//    // Load settings
-//    $config = \Drupal::config('image_tag_analysis.slider');
-//    $settings = [
-//      'itemsPerView' => (int) $config->get('items_per_view') ?? 3,
-//      'effect' => $config->get('slider_effect') ?? 'slide',
-//      'breakpoints' => [
-//        0 => ['slidesPerView' => (int) $config->get('slides_mobile') ?? 1],
-//        768 => ['slidesPerView' => (int) $config->get('slides_tablet') ?? 2],
-//        1024 => ['slidesPerView' => (int) $config->get('slides_desktop') ?? 3],
-//      ],
-//    ];
-//
-//    // 🔧 Log here
-//    \Drupal::logger('image_tag_analysis')->notice('📦 Slider settings: <pre>@settings</pre>', [
-//      '@settings' => print_r($settings, TRUE),
-//    ]);
-//
-//    return [
-//      '#theme' => 'matched_products_slider',
-//      '#items' => $items,
-//      '#attached' => [
-//        'library' => ['image_tag_analysis/slider'],
-//        'drupalSettings' => [
-//          'image_tag_analysis' => [
-//            'matched_slider_config' => $settings,
-//          ],
-//        ],
-//      ],
-//      '#cache' => [
-//        'tags' => [
-//          'node:' . $node->id(),
-//          'taxonomy_term_list',
-//          'config:image_tag_analysis.slider',
-//        ],
-//        'contexts' => ['url.path'],
-//        'max-age' => 0,
-//      ],
-//    ];
-//  }
-
   public function build() {
     $route_match = \Drupal::routeMatch();
     $node = $route_match->getParameter('node');
@@ -194,6 +81,7 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
       $title = $product->label();
       $store = $product->get('field_product_store_name')->value ?? 'N/A';
       $link_url = $product->get('field_product_external_link')->uri ?? $product->toUrl()->toString();
+      $price = $product->hasField('field_product_price') && !$product->get('field_product_price')->isEmpty() ? number_format($product->get('field_product_price')->value, 2) : NULL;
 
       $image_markup = '';
       if (!$product->get('field_product_image')->isEmpty()) {
@@ -221,6 +109,7 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
           '#options' => ['attributes' => ['target' => '_blank']],
         ],
         'store' => ['#markup' => $store],
+        'price' => $price ? ['#markup' => 'RM' . $price] : NULL,
       ];
     }
 
