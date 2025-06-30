@@ -47,6 +47,12 @@ class MatchedProductsBlock extends BlockBase implements ContainerFactoryPluginIn
       return [];
     }
 
+    // Skip if editor hides slider
+    if ($node->hasField('field_hide_product_slider') && $node->get('field_hide_product_slider')->value) {
+      \Drupal::logger('image_tag_analysis')->notice('Product slider hidden by editor for node @nid', ['@nid' => $node->id()]);
+      return [];
+    }
+
     $items = [];
 
     // Try matched product tags

@@ -58,7 +58,16 @@ function image_tag_analysis_install() {
   _image_tag_analysis_add_field('node', 'article', 'field_image_product_tags', 'entity_reference', 'Product Tags (Matched)', [
     'target_type' => 'taxonomy_term',
   ]);
-}
+  _image_tag_analysis_add_field('node', 'article', 'field_hide_product_slider', 'boolean', 'Hide Product Slider', [], [
+    'type' => 'boolean_checkbox',
+    'weight' => 100,
+  ]);
+
+  // Add hide from display
+  _image_tag_analysis_add_field('node', 'article', 'field_hide_product_slider', 'boolean', 'Hide Product Slider', [], [
+    'type' => 'boolean_checkbox'
+    ]);
+  }
 
 /**
  * Helper to create a content type.
@@ -77,7 +86,7 @@ function _image_tag_analysis_create_content_type($type, $label) {
 /**
  * Helper to create a field for a content type.
  */
-function _image_tag_analysis_add_field($entity_type, $bundle, $field_name, $field_type, $label, array $settings = []) {
+function _image_tag_analysis_add_field($entity_type, $bundle, $field_name, $field_type, $label, array $settings = [], array $widget = []) {
   $field_storage = \Drupal::entityTypeManager()->getStorage('field_storage_config')->load("$entity_type.$field_name");
   if (!$field_storage) {
     $field_storage = \Drupal\field\Entity\FieldStorageConfig::create([
@@ -99,5 +108,21 @@ function _image_tag_analysis_add_field($entity_type, $bundle, $field_name, $fiel
     ]);
     $field_config->save();
     \Drupal::logger('image_tag_analysis')->notice('➕ Field @field added to @bundle', ['@field' => $field_name, '@bundle' => $bundle]);
+  }
+
+  // 💡 Attach to form display
+  $form_display = \Drupal::entityTypeManager()
+    ->getStorage('entity_form_display')
+    ->load("$entity_type.$bundle.default");
+  if ($form_display) {
+    $form_display->setComponent($field_name, $widget + ['type' => 'string_textfield'])->save();
+  }
+
+  // 🚫 Hide from view display
+  $view_display = \Drupal::entityTypeManager()
+    ->getStorage('entity_view_display')
+    ->load("$entity_type.$bundle.default");
+  if ($view_display) {
+    $view_display->removeComponent($field_name)->save();
   }
 }
