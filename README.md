@@ -1,6 +1,6 @@
 # Image Tag Analysis Module
 
-**Version:** 2.1.1\
+**Version:** 2.1.3\
 **Status:** Stable\
 **Requires:** Drupal 10.x/11.x, OpenAI API Key, Internet access (for live tagging via OpenAI)
 
@@ -24,16 +24,12 @@ It can:
 
 ---
 
-## 🚀 New in v2.1.1
+## 🚀 What’s New in v2.1.3
 
-- Migrated to OpenAI **Assistants API**
-- Handles **local + S3 image sources**
-- **Configurable tag limit**
-- Filters out irrelevant tags (e.g., containing "Sponsor")
-- Supports re-analysis via form button or AJAX
-- Automaticallyt renders fallback products if no matched tags found
-- Logs tag processing and assistant calls
-- Admin UI (WIP): tag limit, assistant ID, prompt refinement
+- ✅ **Per-article toggle** to hide the product slider entirely
+- ✅ Product **price** now rendered in the slider
+- ✅ Cleaner fallback logic + slider suppress when checkbox enabled
+- ✅ Logs enhanced for debugging matched/fallback decisions
 
 ---
 
@@ -67,10 +63,13 @@ The module will automatically create this content type. Ensure these field confi
 
 ### 3. Content Type: **Article**
 
-| Field                        | Field Name               | Type               | Configurations                                     |
-|-----------------------------|--------------------------|--------------------|----------------------------------------------------|
-| Image                       | `field_image`            | Image              | Required                                           |
-| Product Tags (Matched)      | `field_image_product_tags` | Term reference  | Unlimited. Vocabulary: `Product Tags`             |
+Auto-created during install.
+
+| Label                     | Field Name                  | Type             | Notes                                 |
+|--------------------------|-----------------------------|------------------|---------------------------------------|
+| Image                    | `field_image`               | Image            | Required                              |
+| Product Tags (Matched)   | `field_image_product_tags`  | Term reference   | Matched tags from AI analysis         |
+| Hide Product Slider 🔒   | `field_hide_product_slider` | Boolean checkbox | Optional toggle to disable slider     |
 
 ### 3. Configuration
 
@@ -78,6 +77,21 @@ You must configure:
 - `openai_key`: via Drupal Key module
 - `assistant_id`: hardcoded in `OpenAiAssistantService.php` (or optionally via admin config)
 - Image field machine name: defaults to `field_product_image`
+---
+
+## 🎯 Functionality Overview
+
+| Feature                            | Supported |
+|------------------------------------|-----------|
+| AI Image Tagging via OpenAI        | ✅        |
+| S3 + Local Image Handling          | ✅        |
+| Tag Matching or Auto-Create        | ✅        |
+| Product Slider (Swiper)            | ✅        |
+| Fallback Products on No Match      | ✅        |
+| Re-analyze via AJAX                | ✅        |
+| Hide Slider (Per Node)             | ✅ v2.1.3  |
+| Product Price in Slider            | ✅ v2.1.3  |
+
 ---
 
 ## 🧠 Suggested Prompt
