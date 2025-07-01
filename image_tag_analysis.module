@@ -65,6 +65,9 @@ function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterfac
       ],
       '#weight' => 99,
     ];
+
+    $form['#after_build'][] = 'image_tag_analysis_group_product_fields_after_build';
+
   } elseif ($node->bundle() === 'article') {
     $form['reanalyze'] = [
       '#type' => 'submit',
@@ -111,7 +114,55 @@ function image_tag_analysis_form_node_form_alter(array &$form, FormStateInterfac
         '#markup' => '<div>' . implode(', ', $tags) . '</div>',
       ];
     }
+
+    $form['#after_build'][] = 'image_tag_analysis_group_fields_after_build';
   }
+}
+
+function image_tag_analysis_group_fields_after_build(array $form, FormStateInterface $form_state) {
+  // Pindahkan hanya jika group wujud
+  if (isset($form['group_ai_generated'])) {
+    if (isset($form['ai_generated_tags'])) {
+      $form['group_ai_generated']['ai_generated_tags'] = $form['ai_generated_tags'];
+      unset($form['ai_generated_tags']);
+    }
+
+    if (isset($form['reanalyze'])) {
+      $form['group_ai_generated']['reanalyze'] = $form['reanalyze'];
+      unset($form['reanalyze']);
+    }
+
+    if (isset($form['field_hide_product_slider'])) {
+      $form['group_ai_generated']['field_hide_product_slider'] = $form['field_hide_product_slider'];
+    }
+  } else {
+    \Drupal::logger('image_tag_analysis')->warning('❗Field group "group_ai_generated" not found. Rendering fields at top level.');
+  }
+
+  return $form;
+}
+
+function image_tag_analysis_group_product_fields_after_build(array $form, FormStateInterface $form_state) {
+  if (isset($form['group_ai_product'])) {
+    if (isset($form['reanalyze'])) {
+      $form['group_ai_product']['reanalyze'] = $form['reanalyze'];
+      unset($form['reanalyze']);
+    }
+
+    if (isset($form['field_product_tags'])) {
+      $form['group_ai_product']['field_product_tags'] = $form['field_product_tags'];
+      unset($form['field_product_tags']);
+    }
+
+    if (isset($form['field_img_tag_analysis_desc'])) {
+      $form['group_ai_product']['field_img_tag_analysis_desc'] = $form['field_img_tag_analysis_desc'];
+      unset($form['field_img_tag_analysis_desc']);
+    }
+  } else {
+    \Drupal::logger('image_tag_analysis')->warning('❗Field group "group_ai_product" not found for product_catalog.');
+  }
+
+  return $form;
 }
 
 
