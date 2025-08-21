@@ -9,4 +9,3 @@ dependencies:
   - node
   - block
   - s3fs
-#  - cdn
