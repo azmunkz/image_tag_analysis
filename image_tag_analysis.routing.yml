@@ -39,4 +39,4 @@ image_tag_analysis.fallback_preview:
     _controller: '\Drupal\image_tag_analysis\Controller\FallbackPreviewController::preview'
   requirements:
     _permission: 'access content'
-    nid: \d+
+    nid: '\d+'
