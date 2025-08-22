@@ -26,7 +26,7 @@ image_tag_analysis.run_tagging:
     _access_mode: 'ANY'
 
 image_tag_analysis.fallback_products:
-  path: '/image-tag-analysis/fallback-products'
+  path: '/admin/config/image-tag-analysis/fallback-products'
   defaults:
     _form: '\Drupal\image_tag_analysis\Form\FallbackProductSelectionForm'
     _title: 'Fallback Product Selection'
@@ -34,7 +34,7 @@ image_tag_analysis.fallback_products:
     _permission: 'administer site configuration'
 
 image_tag_analysis.fallback_preview:
-  path: '/image-tag-analysis/fallback-preview/{nid}'
+  path: '/admin/config/image-tag-analysis/fallback-preview/{nid}'
   defaults:
     _controller: '\Drupal\image_tag_analysis\Controller\FallbackPreviewController::preview'
   requirements:
